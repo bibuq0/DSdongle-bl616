@@ -33,6 +33,8 @@ export interface BridgeApi {
   listSerialPorts(): Promise<string[]>;
   flashDefaultFiles(): Promise<FlashFile[]>;
   flash(port: string, files: FlashFile[], firmwarePath: string): Promise<FlashResult>;
+  minimize(): void;
+  closeWindow(): void;
   onSnapshot(callback: (snapshot: BridgeSnapshot) => void): () => void;
 }
 
@@ -55,6 +57,8 @@ const api: BridgeApi = {
   flashDefaultFiles: () => ipcRenderer.invoke('flash:defaultFiles'),
   flash: (port, files, firmwarePath) =>
     ipcRenderer.invoke('flash:flash', port, files, firmwarePath),
+  minimize: () => ipcRenderer.send('window:minimize'),
+  closeWindow: () => ipcRenderer.send('window:close'),
   onSnapshot: (callback) => {
     const listener = (_event: IpcRendererEvent, snapshot: BridgeSnapshot): void => {
       callback(snapshot);

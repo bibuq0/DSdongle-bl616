@@ -1,5 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Activity,
+  Gamepad2,
+  Joystick,
+  LayoutDashboard,
+  Lightbulb,
+  Minus,
+  Settings,
+  Volume2,
+  X,
+  type LucideIcon
+} from 'lucide-react';
+import {
   CONTROLLER_MODE,
   DEFAULT_REMAP_TABLE,
   POLLING_RATE_MODE,
@@ -14,14 +26,14 @@ import { useI18n, type TranslationKey } from './i18n';
 
 type PageId = 'overview' | 'audio' | 'haptics' | 'triggers' | 'lighting' | 'buttons' | 'system';
 
-const PAGES: Array<{ id: PageId; key: TranslationKey }> = [
-  { id: 'overview', key: 'nav.overview' },
-  { id: 'audio', key: 'nav.audio' },
-  { id: 'haptics', key: 'nav.haptics' },
-  { id: 'triggers', key: 'nav.triggers' },
-  { id: 'lighting', key: 'nav.lighting' },
-  { id: 'buttons', key: 'nav.buttons' },
-  { id: 'system', key: 'nav.system' }
+const PAGES: Array<{ id: PageId; key: TranslationKey; icon: LucideIcon }> = [
+  { id: 'overview', key: 'nav.overview', icon: LayoutDashboard },
+  { id: 'audio', key: 'nav.audio', icon: Volume2 },
+  { id: 'haptics', key: 'nav.haptics', icon: Activity },
+  { id: 'triggers', key: 'nav.triggers', icon: Joystick },
+  { id: 'lighting', key: 'nav.lighting', icon: Lightbulb },
+  { id: 'buttons', key: 'nav.buttons', icon: Gamepad2 },
+  { id: 'system', key: 'nav.system', icon: Settings }
 ];
 
 const CONTROLLER_MODE_LABELS: Record<number, string> = {
@@ -81,6 +93,24 @@ function Row({
   );
 }
 
+function Card({
+  title,
+  subtitle,
+  children
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="feature-card">
+      {title ? <h3>{title}</h3> : null}
+      {subtitle ? <p className="card-sub">{subtitle}</p> : null}
+      {children}
+    </section>
+  );
+}
+
 function Toggle({
   value,
   onChange
@@ -103,15 +133,33 @@ function Toggle({
 function LanguageSwitcher(): React.JSX.Element {
   const { lang, setLang } = useI18n();
   return (
-    <div style={{ padding: '10px 12px 4px', borderTop: '1px solid var(--border)' }}>
+    <div className="language-switcher">
       <select
         value={lang}
         onChange={(event) => setLang(event.target.value as UiLanguage)}
-        style={{ width: '100%' }}
       >
         <option value="zh">中文</option>
         <option value="en">English</option>
       </select>
+    </div>
+  );
+}
+
+function WindowBar(): React.JSX.Element {
+  return (
+    <div className="window-bar">
+      <div className="window-bar-brand">
+        <span className="mark" />
+        DS5 Dongle
+      </div>
+      <div className="window-actions">
+        <button type="button" onClick={() => window.bridge.minimize()} aria-label="Minimize">
+          <Minus size={14} />
+        </button>
+        <button type="button" className="close" onClick={() => window.bridge.closeWindow()} aria-label="Close">
+          <X size={14} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -172,142 +220,153 @@ export default function App(): React.JSX.Element {
 
   const connected = snapshot?.connected ?? false;
   const busy = snapshot?.busy ?? false;
+  const activePage = PAGES.find((p) => p.id === page) ?? PAGES[0];
 
   return (
-    <div className="app">
-      <aside className="sidebar">
-        <div className="brand">DS5 Dongle</div>
-        <div style={{ flex: 1 }}>
-          {PAGES.map((entry) => (
-            <button
-              key={entry.id}
-              type="button"
-              className={`nav${page === entry.id ? ' active' : ''}`}
-              onClick={() => setPage(entry.id)}
-            >
-              {t(entry.key)}
-            </button>
-          ))}
-        </div>
-        <LanguageSwitcher />
-      </aside>
-      <main className="content">
-        <div className="page">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-            <h1 style={{ margin: 0, flex: 1 }}>
-              {t(PAGES.find((p) => p.id === page)?.key ?? 'nav.overview')}
-            </h1>
-            <span className={`badge ${busy ? 'busy' : connected ? 'online' : 'offline'}`}>
-              {busy ? t('common.working') : connected ? t('common.connected') : t('common.disconnected')}
-            </span>
+    <>
+      <WindowBar />
+      <div className="app">
+        <aside className="sidebar">
+          <div className="sidebar-section-label">Controller</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {PAGES.map((entry) => {
+              const Icon = entry.icon;
+              return (
+                <button
+                  key={entry.id}
+                  type="button"
+                  className={`nav${page === entry.id ? ' active' : ''}`}
+                  onClick={() => setPage(entry.id)}
+                >
+                  <Icon size={18} />
+                  {t(entry.key)}
+                </button>
+              );
+            })}
           </div>
-
-          {snapshot?.lastError ? <div className="error">{snapshot.lastError}</div> : null}
-
-          {!connected ? (
-            <div className="card">
-              <p style={{ margin: 0 }}>{t('status.dongleNotFound')}</p>
-              <div className="actions">
-                <button type="button" className="primary" onClick={rescan}>
-                  {t('common.rescan')}
-                </button>
+          <div className="sidebar-spacer" />
+          <LanguageSwitcher />
+        </aside>
+        <main className="content">
+          <div className="page">
+            <div className="feature-heading">
+              <div>
+                <h1>{t(activePage.key)}</h1>
+                <p>{t(`${activePage.key}.subtitle` as TranslationKey)}</p>
               </div>
+              <span className={`health-badge ${busy ? 'busy' : connected ? 'online' : 'offline'}`}>
+                <span className="dot" />
+                {busy
+                  ? t('common.working')
+                  : connected
+                    ? t('common.connected')
+                    : t('common.disconnected')}
+              </span>
             </div>
-          ) : null}
 
-          {connected && !config ? (
-            <div className="card">
-              <p style={{ margin: 0 }}>{t('status.readingConfig')}</p>
-            </div>
-          ) : null}
+            {snapshot?.lastError ? <div className="error">{snapshot.lastError}</div> : null}
 
-          {connected && config ? (
-            <>
-              {page === 'overview' ? (
-                <Overview snapshot={snapshot!} />
-              ) : page === 'audio' ? (
-                <Audio config={config} apply={apply} />
-              ) : page === 'haptics' ? (
-                <Haptics config={config} apply={apply} />
-              ) : page === 'triggers' ? (
-                <Triggers config={config} apply={apply} />
-              ) : page === 'lighting' ? (
-                <Lighting config={config} apply={apply} />
-              ) : page === 'buttons' ? (
-                <Buttons remap={remap} setRemapFor={setRemapFor} resetRemap={resetRemap} />
-              ) : (
-                <>
-                  <System config={config} apply={apply} />
-                  <FirmwareFlash />
-                </>
-              )}
-
-              <div className="actions">
-                <button type="button" className="primary" disabled={busy} onClick={save}>
-                  {saving ? t('common.saving') : t('common.saveToDongle')}
-                </button>
-                <button type="button" className="danger" disabled={busy} onClick={reset}>
-                  {t('common.restoreDefaults')}
-                </button>
-                {snapshot?.lastSavedAt ? (
-                  <span style={{ color: 'var(--text-dim)', alignSelf: 'center', fontSize: 12 }}>
-                    {t('common.savedAt')} {new Date(snapshot.lastSavedAt).toLocaleTimeString()}
-                  </span>
-                ) : null}
+            {!connected ? (
+              <div className="empty-card">
+                <p style={{ margin: 0 }}>{t('status.dongleNotFound')}</p>
+                <div className="actions" style={{ marginTop: 12 }}>
+                  <button type="button" className="secondary-action" onClick={rescan}>
+                    {t('common.rescan')}
+                  </button>
+                </div>
               </div>
-            </>
-          ) : null}
-        </div>
-      </main>
-    </div>
+            ) : null}
+
+            {connected && !config ? (
+              <div className="empty-card">
+                <p style={{ margin: 0 }}>{t('status.readingConfig')}</p>
+              </div>
+            ) : null}
+
+            {connected && config ? (
+              <>
+                {page === 'overview' ? (
+                  <Overview snapshot={snapshot!} />
+                ) : page === 'audio' ? (
+                  <Audio config={config} apply={apply} />
+                ) : page === 'haptics' ? (
+                  <Haptics config={config} apply={apply} />
+                ) : page === 'triggers' ? (
+                  <Triggers config={config} apply={apply} />
+                ) : page === 'lighting' ? (
+                  <Lighting config={config} apply={apply} />
+                ) : page === 'buttons' ? (
+                  <Buttons remap={remap} setRemapFor={setRemapFor} resetRemap={resetRemap} />
+                ) : (
+                  <>
+                    <System config={config} apply={apply} />
+                    <FirmwareFlash />
+                  </>
+                )}
+
+                <div className="actions">
+                  <button type="button" className="primary-action" disabled={busy} onClick={save}>
+                    {saving ? t('common.saving') : t('common.saveToDongle')}
+                  </button>
+                  <button type="button" className="danger-action" disabled={busy} onClick={reset}>
+                    {t('common.restoreDefaults')}
+                  </button>
+                  {snapshot?.lastSavedAt ? (
+                    <span className="saved-note">
+                      {t('common.savedAt')} {new Date(snapshot.lastSavedAt).toLocaleTimeString()}
+                    </span>
+                  ) : null}
+                </div>
+              </>
+            ) : null}
+          </div>
+        </main>
+      </div>
+    </>
   );
 }
 
 function Overview({ snapshot }: { snapshot: BridgeSnapshot }): React.JSX.Element {
   const { t } = useI18n();
   const { status } = snapshot;
+  const batteryClass =
+    status.batteryState === 0 && status.batteryPercent <= 10
+      ? 'battery-critical'
+      : status.batteryState === 0 && status.batteryPercent <= 20
+        ? 'battery-warning'
+        : '';
   return (
-    <div className="status-grid">
-      <div className="stat">
+    <div className="metric-grid">
+      <div className="metric">
         <div className="k">{t('status.firmware')}</div>
         <div className="v">{snapshot.firmwareVersion || '—'}</div>
       </div>
-      <div className="stat">
+      <div className="metric">
         <div className="k">{t('status.battery')}</div>
-        <div
-          className={`v ${
-            status.batteryState === 0 && status.batteryPercent <= 10
-              ? 'battery-critical'
-              : status.batteryState === 0 && status.batteryPercent <= 20
-                ? 'battery-warning'
-                : ''
-          }`}
-        >
+        <div className={`v ${batteryClass}`}>
           {batteryLabel(status.batteryPercent, status.batteryState, t)}
         </div>
       </div>
-      <div className="stat">
+      <div className="metric">
         <div className="k">{t('status.rssi')}</div>
         <div className="v">{rssiLabel(status.rssi, status.rssiKnown, t)}</div>
       </div>
-      <div className="stat">
+      <div className="metric">
         <div className="k">{t('status.speakerStream')}</div>
         <div className="v">{status.speakerActive ? t('common.on') : t('common.off')}</div>
       </div>
-      <div className="stat">
+      <div className="metric">
         <div className="k">{t('status.micStream')}</div>
         <div className="v">{status.micActive ? t('common.on') : t('common.off')}</div>
       </div>
-      <div className="stat">
+      <div className="metric">
         <div className="k">{t('status.uptime')}</div>
         <div className="v">{snapshot.uptimeSeconds}s</div>
       </div>
       {snapshot.devicePath ? (
-        <div className="stat">
+        <div className="metric">
           <div className="k">{t('status.devicePath')}</div>
-          <div className="v" style={{ fontSize: 12, fontWeight: 400 }}>
-            {snapshot.devicePath}
-          </div>
+          <div className="v muted">{snapshot.devicePath}</div>
         </div>
       ) : null}
     </div>
@@ -323,9 +382,8 @@ function Audio({
 }): React.JSX.Element {
   const { t } = useI18n();
   return (
-    <>
-      <h2>{t('audio.volume')}</h2>
-      <div className="card">
+    <div className="feature-card-grid">
+      <Card title={t('audio.volume')}>
         <Row label={t('audio.speakerVolume')}>
           <input
             type="range"
@@ -334,7 +392,7 @@ function Audio({
             value={config.speakerVolume}
             onChange={(event) => apply({ speakerVolume: Number(event.target.value) })}
           />
-          <span style={{ width: 36, textAlign: 'right' }}>{config.speakerVolume}</span>
+          <span className="value-readout">{config.speakerVolume}</span>
         </Row>
         <Row label={t('audio.headsetVolume')}>
           <input
@@ -344,7 +402,7 @@ function Audio({
             value={config.headsetVolume}
             onChange={(event) => apply({ headsetVolume: Number(event.target.value) })}
           />
-          <span style={{ width: 36, textAlign: 'right' }}>{config.headsetVolume}</span>
+          <span className="value-readout">{config.headsetVolume}</span>
         </Row>
         <Row label={t('audio.speakerGain')} hint={t('audio.speakerGainHint')}>
           <input
@@ -367,9 +425,8 @@ function Audio({
         <Row label={t('audio.volumeLock')} hint={t('audio.volumeLockHint')}>
           <Toggle value={config.lockVolume} onChange={(value) => apply({ lockVolume: value })} />
         </Row>
-      </div>
-      <h2>{t('audio.passthrough')}</h2>
-      <div className="card">
+      </Card>
+      <Card title={t('audio.passthrough')}>
         <Row label={t('audio.micPassthrough')}>
           <Toggle value={!config.disableMic} onChange={(value) => apply({ disableMic: !value })} />
         </Row>
@@ -379,8 +436,8 @@ function Audio({
             onChange={(value) => apply({ disableSpeaker: !value })}
           />
         </Row>
-      </div>
-    </>
+      </Card>
+    </div>
   );
 }
 
@@ -393,18 +450,20 @@ function Haptics({
 }): React.JSX.Element {
   const { t } = useI18n();
   return (
-    <div className="card">
-      <Row label={t('haptics.gain')} hint={t('haptics.gainHint')}>
-        <input
-          type="range"
-          min={100}
-          max={200}
-          step={5}
-          value={Math.round(config.hapticsGain * 100)}
-          onChange={(event) => apply({ hapticsGain: Number(event.target.value) / 100 })}
-        />
-        <span style={{ width: 48, textAlign: 'right' }}>{config.hapticsGain.toFixed(2)}</span>
-      </Row>
+    <div className="feature-card-grid single">
+      <Card title={t('haptics.gain')} subtitle={t('haptics.gainHint')}>
+        <Row label={t('haptics.gain')}>
+          <input
+            type="range"
+            min={100}
+            max={200}
+            step={5}
+            value={Math.round(config.hapticsGain * 100)}
+            onChange={(event) => apply({ hapticsGain: Number(event.target.value) / 100 })}
+          />
+          <span className="value-readout">{config.hapticsGain.toFixed(2)}</span>
+        </Row>
+      </Card>
     </div>
   );
 }
@@ -418,17 +477,19 @@ function Triggers({
 }): React.JSX.Element {
   const { t } = useI18n();
   return (
-    <div className="card">
-      <Row label={t('triggers.reduction')} hint={t('triggers.reductionHint')}>
-        <input
-          type="range"
-          min={0}
-          max={10}
-          value={config.triggerReduce}
-          onChange={(event) => apply({ triggerReduce: Number(event.target.value) })}
-        />
-        <span style={{ width: 36, textAlign: 'right' }}>{config.triggerReduce}</span>
-      </Row>
+    <div className="feature-card-grid single">
+      <Card title={t('triggers.reduction')} subtitle={t('triggers.reductionHint')}>
+        <Row label={t('triggers.reduction')}>
+          <input
+            type="range"
+            min={0}
+            max={10}
+            value={config.triggerReduce}
+            onChange={(event) => apply({ triggerReduce: Number(event.target.value) })}
+          />
+          <span className="value-readout">{config.triggerReduce}</span>
+        </Row>
+      </Card>
     </div>
   );
 }
@@ -447,9 +508,9 @@ function Lighting({
     [r, g, b]
   );
   return (
-    <>
-      <div className="card">
-        <Row label={t('lighting.color')} hint={t('lighting.colorHint')}>
+    <div className="feature-card-grid">
+      <Card title={t('lighting.color')} subtitle={t('lighting.colorHint')}>
+        <Row label={t('lighting.color')}>
           <input
             type="color"
             value={hex}
@@ -466,11 +527,13 @@ function Lighting({
           />
           <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>{hex}</span>
         </Row>
-        <Row label={t('lighting.ledAutoOff')} hint={t('lighting.ledAutoOffHint')}>
+      </Card>
+      <Card title={t('lighting.ledAutoOff')} subtitle={t('lighting.ledAutoOffHint')}>
+        <Row label={t('lighting.ledAutoOff')}>
           <Toggle value={config.disableLed} onChange={(value) => apply({ disableLed: value })} />
         </Row>
-      </div>
-    </>
+      </Card>
+    </div>
   );
 }
 
@@ -485,9 +548,8 @@ function Buttons({
 }): React.JSX.Element {
   const { t } = useI18n();
   return (
-    <>
-      <div className="card">
-        <p style={{ marginTop: 0 }}>{t('buttons.intro')}</p>
+    <div className="feature-card-grid single">
+      <Card title={t('buttons.title')} subtitle={t('buttons.intro')}>
         <table className="remap-table">
           <thead>
             <tr>
@@ -519,13 +581,13 @@ function Buttons({
             })}
           </tbody>
         </table>
-        <div className="actions">
-          <button type="button" className="secondary" onClick={resetRemap}>
+        <div className="actions" style={{ marginTop: 12 }}>
+          <button type="button" className="secondary-action" onClick={resetRemap}>
             {t('buttons.resetIdentity')}
           </button>
         </div>
-      </div>
-    </>
+      </Card>
+    </div>
   );
 }
 
@@ -538,9 +600,8 @@ function System({
 }): React.JSX.Element {
   const { t } = useI18n();
   return (
-    <>
-      <h2>{t('system.controller')}</h2>
-      <div className="card">
+    <div className="feature-card-grid">
+      <Card title={t('system.controller')}>
         <Row label={t('system.controllerMode')} hint={t('system.controllerModeHint')}>
           <select
             value={config.controllerMode}
@@ -570,6 +631,8 @@ function System({
             onChange={(event) => apply({ inactiveMinutes: Number(event.target.value) })}
           />
         </Row>
+      </Card>
+      <Card title={t('system.controller')}>
         <Row label={t('system.usbWake')}>
           <Toggle value={config.enableWake} onChange={(value) => apply({ enableWake: value })} />
         </Row>
@@ -585,8 +648,8 @@ function System({
             onChange={(value) => apply({ psShortcutEnabled: value })}
           />
         </Row>
-      </div>
-    </>
+      </Card>
+    </div>
   );
 }
 
@@ -646,13 +709,16 @@ function FirmwareFlash(): React.JSX.Element {
   };
 
   return (
-    <>
-      <h2>{t('flash.title')}</h2>
-      <div className="card">
-        <p style={{ marginTop: 0 }}>{t('flash.intro')}</p>
+    <div className="feature-card-grid single" style={{ marginTop: 14 }}>
+      <Card title={t('flash.title')} subtitle={t('flash.intro')}>
         <Row label={t('flash.tool')} hint={t('flash.toolHint')}>
-          <span className={`badge ${toolReady ? 'online' : 'offline'}`}>
-            {toolReady === null ? t('common.checking') : toolReady ? t('common.found') : t('common.notFound')}
+          <span className={`health-badge ${toolReady ? 'online' : 'offline'}`}>
+            <span className="dot" />
+            {toolReady === null
+              ? t('common.checking')
+              : toolReady
+                ? t('common.found')
+                : t('common.notFound')}
           </span>
         </Row>
         <Row label={t('flash.port')}>
@@ -664,14 +730,14 @@ function FirmwareFlash(): React.JSX.Element {
               </option>
             ))}
           </select>
-          <button type="button" className="secondary" onClick={refreshPorts}>
+          <button type="button" className="secondary-action" onClick={refreshPorts} style={{ minHeight: 36, padding: '0 12px' }}>
             {t('flash.refresh')}
           </button>
         </Row>
         <Row label={t('flash.boot2')} hint={t('flash.boot2Hint')}>
           <input
             type="text"
-            style={{ width: 360 }}
+            style={{ width: 300 }}
             value={boot2Path}
             onChange={(event) => setBoot2Path(event.target.value)}
           />
@@ -679,7 +745,7 @@ function FirmwareFlash(): React.JSX.Element {
         <Row label={t('flash.partition')} hint={t('flash.partitionHint')}>
           <input
             type="text"
-            style={{ width: 360 }}
+            style={{ width: 300 }}
             value={partitionPath}
             onChange={(event) => setPartitionPath(event.target.value)}
           />
@@ -687,38 +753,23 @@ function FirmwareFlash(): React.JSX.Element {
         <Row label={t('flash.firmware')} hint={t('flash.firmwareHint')}>
           <input
             type="text"
-            style={{ width: 360 }}
+            style={{ width: 300 }}
             value={firmwarePath}
             onChange={(event) => setFirmwarePath(event.target.value)}
           />
         </Row>
-        <div className="actions">
+        <div className="actions" style={{ marginTop: 14 }}>
           <button
             type="button"
-            className="primary"
+            className="primary-action"
             disabled={flashing || !toolReady}
             onClick={doFlash}
           >
             {flashing ? t('flash.flashing') : t('flash.go')}
           </button>
         </div>
-        {log ? (
-          <pre
-            style={{
-              background: '#0d0f13',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              padding: 10,
-              fontSize: 12,
-              maxHeight: 240,
-              overflow: 'auto',
-              color: 'var(--text-dim)'
-            }}
-          >
-            {log}
-          </pre>
-        ) : null}
-      </div>
-    </>
+        {log ? <pre className="flash-log" style={{ marginTop: 12 }}>{log}</pre> : null}
+      </Card>
+    </div>
   );
 }

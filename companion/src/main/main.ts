@@ -21,18 +21,24 @@ let bridgeService: BridgeService | null = null;
 
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
-    width: 1024,
+    width: 1120,
     height: 700,
-    minWidth: 820,
-    minHeight: 560,
+    minWidth: 900,
+    minHeight: 600,
     title: 'DS5 Dongle Config',
-    backgroundColor: '#121418',
+    frame: false,
+    backgroundColor: '#050b13',
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, '../preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true
     }
+  });
+
+  window.once('ready-to-show', () => {
+    window.show();
   });
 
   if (process.env.VITE_DEV_SERVER_URL) {
@@ -105,6 +111,9 @@ function registerIpc(service: BridgeService, settings: SettingsStore): void {
       return flashFirmware(port, resolved);
     }
   );
+
+  ipcMain.on('window:minimize', () => mainWindow?.minimize());
+  ipcMain.on('window:close', () => mainWindow?.close());
 
   service.on('snapshot', sendSnapshot);
 }
