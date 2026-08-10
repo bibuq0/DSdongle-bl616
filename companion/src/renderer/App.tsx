@@ -6,7 +6,9 @@ import {
   LayoutDashboard,
   Lightbulb,
   Minus,
+  Moon,
   Settings,
+  Sun,
   Volume2,
   X,
   type LucideIcon
@@ -23,6 +25,7 @@ import {
 } from '../shared/protocol';
 import type { BridgeSnapshot, FlashFile, UiLanguage } from '../shared/types';
 import { useI18n, type TranslationKey } from './i18n';
+import { useTheme } from './theme';
 
 type PageId = 'overview' | 'audio' | 'haptics' | 'triggers' | 'lighting' | 'buttons' | 'system';
 
@@ -132,8 +135,19 @@ function Toggle({
 
 function LanguageSwitcher(): React.JSX.Element {
   const { lang, setLang } = useI18n();
+  const { theme, toggleTheme } = useTheme();
+  const ThemeIcon = theme === 'dark' ? Sun : Moon;
   return (
     <div className="language-switcher">
+      <button
+        type="button"
+        className="theme-toggle"
+        onClick={toggleTheme}
+        aria-label="Toggle theme"
+        title={theme === 'dark' ? 'Light theme' : 'Dark theme'}
+      >
+        <ThemeIcon size={16} />
+      </button>
       <select
         value={lang}
         onChange={(event) => setLang(event.target.value as UiLanguage)}

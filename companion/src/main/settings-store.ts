@@ -10,7 +10,7 @@ export interface AppSettings {
 
 const DEFAULT_SETTINGS: AppSettings = {
   uiScale: 100,
-  uiTheme: 'light',
+  uiTheme: 'dark',
   language: 'zh'
 };
 
@@ -23,7 +23,7 @@ export function normalizeUiScalePercent(value: unknown): UiScalePercent {
 }
 
 export function normalizeUiThemePreset(value: unknown): UiThemePreset {
-  return THEMES.includes(value as UiThemePreset) ? (value as UiThemePreset) : 'light';
+  return THEMES.includes(value as UiThemePreset) ? (value as UiThemePreset) : 'dark';
 }
 
 export function normalizeUiLanguage(value: unknown): UiLanguage {
