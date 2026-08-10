@@ -43,6 +43,7 @@ export class BridgeService extends EventEmitter {
   private lastConfig: DualsenseConfig | null = null;
   private lastRemap: RemapTable | null = null;
   private busy = false;
+  private connecting = false;
   private startedAt = Date.now();
   private lastError: string | null = null;
   private lastSavedAt: number | null = null;

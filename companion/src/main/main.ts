@@ -1,13 +1,16 @@
 import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron';
 import path from 'node:path';
 import type { DualsenseConfig, RemapTable } from '../shared/protocol';
-import type { UiScalePercent, UiThemePreset } from '../shared/types';
+import type {
+  FlashFile,
+  UiScalePercent,
+  UiThemePreset
+} from '../shared/types';
 import {
   defaultFlashFiles,
   findFlashCommand,
   flashFirmware,
-  listSerialPorts,
-  type FlashFile
+  listSerialPorts
 } from './bl616-flasher';
 import { BridgeService } from './bridge-service';
 import { SettingsStore } from './settings-store';

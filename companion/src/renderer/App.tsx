@@ -201,7 +201,7 @@ export default function App(): React.JSX.Element {
           {connected && config ? (
             <>
               {page === 'overview' ? (
-                <Overview snapshot={snapshot} />
+                <Overview snapshot={snapshot!} />
               ) : page === 'audio' ? (
                 <Audio config={config} apply={apply} />
               ) : page === 'haptics' ? (
@@ -570,7 +570,7 @@ function FirmwareFlash(): React.JSX.Element {
   const [log, setLog] = useState('');
 
   useEffect(() => {
-    void window.bridge.findFlashTool().then(setToolReady);
+    void window.bridge.findFlashTool().then((value) => setToolReady(Boolean(value)));
     void window.bridge.listSerialPorts().then(setPorts).catch(() => undefined);
     void window.bridge.flashDefaultFiles().then((files) => {
       const byAddress = new Map(files.map((file: FlashFile) => [file.address, file.path]));

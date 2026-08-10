@@ -29,14 +29,14 @@ type PendingRequest = {
 
 function summarizeDevice(device: HID.Device): HidDeviceSummary {
   return {
-    path: device.path,
-    vendorId: device.vendorId,
-    productId: device.productId,
-    usagePage: device.usagePage,
-    usage: device.usage,
+    path: device.path ?? '',
+    vendorId: device.vendorId ?? 0,
+    productId: device.productId ?? 0,
+    usagePage: device.usagePage ?? 0,
+    usage: device.usage ?? 0,
     product: device.product,
     manufacturer: device.manufacturer,
-    interface: device.interface
+    interface: device.interface ?? 0
   };
 }
 

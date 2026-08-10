@@ -9,6 +9,7 @@
 
 import { EventEmitter } from 'node:events';
 import HID from 'node-hid';
+import { REPORT_ID } from '../shared/protocol';
 
 const REPORT_LENGTH = 64;
 const DEFAULT_OPEN_RETRY_DELAY_MS = 200;
@@ -84,20 +85,19 @@ export class HidCompanionTransport extends EventEmitter {
     if (!device) {
       throw new Error('DS5Dongle HID device not found');
     }
-    const hid = new HID.HIDAsync(device.path);
-    const closed = await new Promise<boolean>((resolve) => {
-      hid.once('error', () => resolve(false));
-      hid.once('close', () => resolve(false));
-      // HIDAsync opens immediately; a short probe confirms the pipe works.
-      hid.getFeatureReport(0xf7, REPORT_LENGTH)
-        .then(() => resolve(true))
-        .catch(() => resolve(false));
-    });
-    if (!closed) {
-      hid.close();
+    const path = device.path ?? '';
+    const hid = await HID.HIDAsync.open(path);
+    try {
+      await hid.getFeatureReport(REPORT_ID.CONFIG_GET, REPORT_LENGTH);
+    } catch {
+      try {
+        hid.close();
+      } catch {
+        // ignore
+      }
       throw new Error('DS5Dongle HID device failed to open');
     }
-    return new HidCompanionTransport(hid, device.path);
+    return new HidCompanionTransport(hid, path);
   }
 
   async getFeatureReport(reportId: number, _length = REPORT_LENGTH): Promise<number[]> {

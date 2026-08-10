@@ -84,8 +84,8 @@ describe('config set report', () => {
 
 describe('status report', () => {
   it('parses RSSI, audio flags and battery', () => {
-    // report[1] = rssi (-45), report[2] = flags (0x80|0x02|0x01), report[3]=battery, report[4]=state
-    const status = parseStatusReport([REPORT_ID.STATUS, 0xd3, 0x83, 7, 0]);
+    // report[1] = rssi (-45), report[2] = flags (0x80|0x02|0x01), report[3]=battery %, report[4]=state
+    const status = parseStatusReport([REPORT_ID.STATUS, 0xd3, 0x83, 70, 0]);
     expect(status.rssi).toBe(-45);
     expect(status.rssiKnown).toBe(true);
     expect(status.speakerActive).toBe(true);
