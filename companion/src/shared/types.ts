@@ -1,181 +1,102 @@
-import type {
-  BridgeAckPayload,
-  AudioDebugStatsPayload,
-  BridgeStatusPayload,
-  ChordAssignment,
-  ChordFunction,
-  ButtonRemapMap,
-  ButtonRemapProfile,
-  ControllerProfile,
-  CompanionDeviceIdentityPayload,
-  AudioStatusPayload,
-  BridgePresetId,
-  HostPersonaMode,
-  AudioReactiveHapticsSource,
-  AudioReactiveHapticsBassFocus,
-  AudioReactiveHapticsMode,
-  AudioReactiveHapticsResponse,
-  AudioReactiveHapticsAttack,
-  AudioReactiveHapticsRelease,
-  MuteButtonMode,
-  MuteKeyboardBehavior,
-  PollingRateMode,
-  TriggerTestMode
-} from './protocol';
+import type { DualsenseConfig, RemapTable, BridgeStatus } from './protocol';
 
 export type UiScalePercent = 75 | 100 | 125 | 150;
-export type UiThemePreset = 'light' | 'dark' | 'bubble-gum' | 'pomegranate' | 'kiwi';
-
-export interface CompanionSettings {
-  selectedPresetId: BridgePresetId;
-  uiScalePercent: UiScalePercent;
-  uiThemePreset: UiThemePreset;
-  launchAtStartupEnabled: boolean;
-  showBatteryPercentTrayIcon: boolean;
-  hapticsEnabled: boolean;
-  hapticsGainPercent: number;
-  feedbackBoostEnabled: boolean;
-  hapticsBufferLength: number;
-  classicRumbleEnabled: boolean;
-  classicRumbleGainPercent: number;
-  classicRumbleV1Enabled: boolean;
-  adaptiveTriggersEnabled: boolean;
-  triggerEffectIntensityPercent: number;
-  triggerTestMode: TriggerTestMode;
-  speakerEnabled: boolean;
-  speakerVolumePercent: number;
-  speakerGainLevel: number;
-  micVolumePercent: number;
-  micMuted: boolean;
-  audioReactiveHapticsEnabled: boolean;
-  audioReactiveHapticsSource: AudioReactiveHapticsSource;
-  audioReactiveHapticsMode: AudioReactiveHapticsMode;
-  audioReactiveHapticsGainPercent: number;
-  audioReactiveHapticsBassFocus: AudioReactiveHapticsBassFocus;
-  audioReactiveHapticsResponse: AudioReactiveHapticsResponse;
-  audioReactiveHapticsAttack: AudioReactiveHapticsAttack;
-  audioReactiveHapticsRelease: AudioReactiveHapticsRelease;
-  lightbarEnabled: boolean;
-  lightbarColor: string;
-  lightbarBrightnessPercent: number;
-  lightbarOverrideEnabled: boolean;
-  lightbarRestoreEnabled: boolean;
-  muteButtonMode: MuteButtonMode;
-  muteKeyboardUsage: number;
-  muteKeyboardModifiers: number;
-  muteKeyboardBehavior: MuteKeyboardBehavior;
-  muteKeyboardChordStarterEnabled: boolean;
-  ledEnabled: boolean;
-  playerLedEnabled: boolean;
-  idleDisconnectEnabled: boolean;
-  idleDisconnectTimeoutMinutes: number;
-  usbSuspendDisconnectEnabled: boolean;
-  sleepKeybindEnabled: boolean;
-  speakerVolumeShortcutEnabled: boolean;
-  pollingRateMode: PollingRateMode;
-  hostPersonaMode: HostPersonaMode;
-  notifyControllerConnection: boolean;
-  notifyLowBattery: boolean;
-  duplexMicEnabled: boolean;
-  controllerPowerSavingEnabled: boolean;
-  selectedControllerProfileId: string;
-  controllerProfiles: ControllerProfile[];
-  selectedButtonRemappingProfileId: string;
-  buttonRemappingProfiles: ButtonRemapProfile[];
-  buttonRemappingDraft: ButtonRemapMap;
-  chordFunctions: ChordFunction[];
-  chordAssignments: ChordAssignment[];
-}
+export type UiThemePreset = 'light' | 'dark';
 
 export interface HidDeviceSummary {
-  path?: string;
-  vendorId?: number;
-  productId?: number;
-  usagePage?: number;
-  usage?: number;
+  path: string;
+  vendorId: number;
+  productId: number;
+  usagePage: number;
+  usage: number;
   product?: string;
   manufacturer?: string;
-  interface?: number;
+  interface: number;
 }
 
-export interface AudioHapticsSession {
-  processId: number;
-  displayName: string;
-  executableName: string | null;
-  processPath: string | null;
-  iconPath: string | null;
-  iconDataUrl?: string | null;
-  sessionIdentifier: string | null;
-  sessionInstanceIdentifier: string | null;
-  state: 'active' | 'inactive' | 'expired' | string;
-  endpointName: string;
-  isSelected: boolean;
+export interface CompanionSettings {
+  controllerMode: number;
+  pollingRateMode: number;
+  inactiveMinutes: number;
+  disableLed: boolean;
+  hapticsGain: number;
+  speakerVolume: number;
+  headsetVolume: number;
+  speakerGain: number;
+  audioBufferLength: number;
+  enableUsbSn: boolean;
+  psShortcutEnabled: boolean;
+  disableMic: boolean;
+  disableSpeaker: boolean;
+  enableWake: boolean;
+  triggerReduce: number;
+  lockVolume: boolean;
+  usbStealth: boolean;
+  ledColor: [number, number, number];
+  remap: RemapTable;
 }
 
-export type BridgeStateKind =
-  | 'no-bridge'
-  | 'normal-firmware'
-  | 'transitioning'
-  | 'connected'
-  | 'incompatible'
-  | 'error';
-
-export interface BridgeDiagnostics {
-  hidPath: string | null;
-  protocolVersion: string | null;
-  uptimeSeconds: number | null;
-  settingsRevision: number | null;
-  lastAck: BridgeAckPayload | null;
-  lastError: string | null;
-  firmwareUpdateAvailable: {
-    currentVersion: string;
-    availableVersion: string;
-  } | null;
-  lastPollAt: number | null;
-  rawDevices: HidDeviceSummary[];
-  deviceIdentity: CompanionDeviceIdentityPayload | null;
-  audioDebugLogPath: string | null;
-  audioDebugLogLines: string[];
-  audioDebugDroppedCount: number;
-  audioDebugStats: AudioDebugStatsPayload | null;
-  triggerTraceLines: string[];
-  triggerTraceDroppedCount: number;
-  feedbackTraceLines: string[];
-  feedbackTraceDroppedCount: number;
-  audioStatus: AudioStatusPayload | null;
-}
+export type ConnectionState = 'disconnected' | 'discovering' | 'connected' | 'incompatible';
 
 export interface BridgeSnapshot {
-  state: BridgeStateKind;
-  message: string;
-  status: BridgeStatusPayload | null;
-  settings: CompanionSettings;
-  diagnostics: BridgeDiagnostics;
-  personaTransition?: HostPersonaTransition | null;
+  connected: boolean;
+  connectionState: ConnectionState;
+  devicePath: string;
+  productId: number;
+  firmwareVersion: string;
+  status: BridgeStatus;
+  config: DualsenseConfig | null;
+  settings: CompanionSettings | null;
+  uptimeSeconds: number;
+  busy: boolean;
+  lastError: string | null;
+  lastSavedAt: number | null;
 }
 
-export interface HostPersonaTransition {
-  from: HostPersonaMode;
-  to: HostPersonaMode;
-  startedAt: number;
-  deadlineAt: number;
+export interface BridgeDiagnostics {
+  connected: boolean;
+  devicePath: string;
+  productId: number;
+  firmwareVersion: string;
+  rssi: number;
+  batteryPercent: number;
+  batteryState: number;
 }
+
+export const DEFAULT_COMPANION_SETTINGS: CompanionSettings = {
+  controllerMode: 2,
+  pollingRateMode: 0,
+  inactiveMinutes: 30,
+  disableLed: true,
+  hapticsGain: 1.0,
+  speakerVolume: 100,
+  headsetVolume: 100,
+  speakerGain: 2,
+  audioBufferLength: 64,
+  enableUsbSn: true,
+  psShortcutEnabled: false,
+  disableMic: false,
+  disableSpeaker: false,
+  enableWake: false,
+  triggerReduce: 0,
+  lockVolume: false,
+  usbStealth: false,
+  ledColor: [0xff, 0xff, 0xff],
+  remap: []
+};
 
 export interface WindowsDeviceCleanupResult {
-  scriptPath: string;
-  logPath: string;
-  includedBluetooth: boolean;
+  ok: boolean;
   message: string;
 }
 
-export type PicoFirmwareAction = 'mount' | 'flash' | 'nuke';
+export interface FlashFile {
+  address: number;
+  path: string;
+}
 
-export interface PicoFirmwareActionResult {
+export interface FlashResult {
   ok: boolean;
-  action: PicoFirmwareAction;
-  cancelled?: boolean;
-  driveRoot?: string;
-  sourcePath?: string;
-  targetPath?: string;
-  message: string;
+  output: string;
+  error?: string;
 }

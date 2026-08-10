@@ -1,36 +1,29 @@
 {
-  "name": "ds5-bridge-companion",
-  "version": "1.6.4",
+  "name": "ds5dongle-bl618-companion",
+  "version": "0.1.0",
   "private": true,
-  "description": "Windows companion app for the Pico DS5 Bridge companion firmware.",
-  "author": "SundayMoments",
-  "productName": "DS5 Bridge",
+  "description": "Windows companion app for the DS5Dongle BL618 (BL616) firmware.",
+  "productName": "DS5 Dongle Config",
   "license": "AGPL-3.0-only",
   "main": "dist/main/main/main.js",
   "scripts": {
     "dev": "npm run build && electron .",
     "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.json --noEmit",
-    "build:audio-helper": "dotnet publish native/AudioHelper/AudioHelper.csproj -c Release -r win-x64 --self-contained true -o native/AudioHelper/bin/publish/win-x64",
-    "build:firmware-tools": "powershell -NoProfile -ExecutionPolicy Bypass -File ../tools/build-pico-universal-flash-nuke.ps1",
     "build:app": "tsc -p tsconfig.main.json && vite build",
-    "build": "npm run build:audio-helper && npm run build:app",
-    "package:win": "npm run build:firmware-tools && npm run build && node scripts/package-win.mjs",
-    "installer:win": "npm run build:firmware-tools && npm run build && electron-builder --win nsis --x64",
-    "test": "npm run test:companion && npm run test:installer && npm run test:native && npm run test:firmware",
+    "build": "npm run build:app",
+    "package:win": "npm run build && node scripts/package-win.mjs",
+    "installer:win": "npm run build && electron-builder --win nsis --x64",
+    "test": "npm run test:companion",
     "test:companion": "vitest run src",
-    "test:installer": "node scripts/check-installer-upgrade-config.mjs",
-    "test:native": "dotnet test native/AudioHelper.Tests/AudioHelper.Tests.csproj --nologo",
-    "test:firmware": "cmake -S ../tests/firmware -B ../build-firmware-tests -G Ninja && cmake --build ../build-firmware-tests && ctest --test-dir ../build-firmware-tests --output-on-failure",
     "visual:smoke": "npm run build && node scripts/visual-smoke.mjs",
     "layout:check": "npm run build && node scripts/layout-check.mjs"
   },
   "build": {
-    "appId": "io.github.sundaymoments.ds5bridge",
-    "artifactName": "DS5-Bridge-Companion-Setup-${version}.${ext}",
+    "appId": "top.ds5678.ds5dongleconfig",
+    "artifactName": "DS5-Dongle-Config-Setup-${version}.${ext}",
     "directories": {
       "output": "artifacts/installer"
     },
-    "afterPack": "scripts/electron-builder-after-pack.cjs",
     "files": [
       "dist/**/*",
       "package.json",
@@ -42,47 +35,12 @@
       "node_modules/pkg-prebuilds/lib/**/*",
       "node_modules/pkg-prebuilds/package.json"
     ],
-    "extraResources": [
-      {
-        "from": "../assets/controllers",
-        "to": "assets/controllers",
-        "filter": [
-          "ds5-bridge_app-icon-tile.ico",
-          "ds5-bridge_app-icon-tile.png",
-          "ds5-bridge_mark.ico",
-          "ds5-bridge_mark.png"
-        ]
-      },
-      {
-        "from": "native/AudioHelper/bin/publish/win-x64",
-        "to": "native/AudioHelper",
-        "filter": [
-          "**/*"
-        ]
-      },
-      {
-        "from": "firmware",
-        "to": "firmware",
-        "filter": [
-          "pico-universal-flash-nuke.uf2",
-          "pico-universal-flash-nuke.uf2.sha256"
-        ]
-      },
-      {
-        "from": "../tools/windows",
-        "to": "tools/windows",
-        "filter": [
-          "clean-ds5bridge-devices.ps1"
-        ]
-      }
-    ],
     "asar": true,
     "asarUnpack": [
       "node_modules/node-hid/prebuilds/**/*.node"
     ],
     "npmRebuild": false,
     "win": {
-      "icon": "../assets/controllers/ds5-bridge_app-icon-tile.ico",
       "signAndEditExecutable": false,
       "target": [
         {
@@ -94,22 +52,20 @@
       ]
     },
     "nsis": {
-      "guid": "40464839-1bb3-5f24-b04b-13b55106e88b",
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": false,
       "deleteAppDataOnUninstall": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "DS5 Bridge",
-      "uninstallDisplayName": "DS5 Bridge"
+      "shortcutName": "DS5 Dongle Config",
+      "uninstallDisplayName": "DS5 Dongle Config"
     }
   },
   "dependencies": {
     "node-hid": "^3.2.0"
   },
   "devDependencies": {
-    "@tabler/icons-react": "^3.44.0",
     "@types/node": "^25.0.3",
     "@types/node-hid": "^1.3.4",
     "@types/react": "^19.2.7",
@@ -118,8 +74,6 @@
     "electron": "^39.8.10",
     "electron-builder": "^26.8.1",
     "lucide-react": "^0.561.0",
-    "playwright": "^1.59.1",
-    "rcedit": "^5.0.2",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "typescript": "^5.9.3",
