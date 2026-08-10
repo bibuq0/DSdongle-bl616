@@ -11,3 +11,12 @@ bouffalo_sdk_ds5/
 *.zip
 .DS_Store
 *.code-workspace
+
+# DS5Dongle BL618 companion app
+companion/node_modules/
+companion/dist/
+companion/artifacts/
+companion/native/AudioHelper/bin/
+companion/native/AudioHelper/obj/
+companion/firmware/
+
