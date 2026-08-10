@@ -6,6 +6,7 @@ import type {
   FlashFile,
   FlashResult,
   HidDeviceSummary,
+  UiLanguage,
   UiScalePercent,
   UiThemePreset
 } from './shared/types';
@@ -20,9 +21,14 @@ export interface BridgeApi {
   resetConfig(): Promise<BridgeSnapshot>;
   setRemap(table: RemapTable): Promise<BridgeSnapshot>;
   resetRemap(): Promise<BridgeSnapshot>;
-  getSettings(): Promise<{ uiScale: UiScalePercent; uiTheme: UiThemePreset }>;
+  getSettings(): Promise<{
+    uiScale: UiScalePercent;
+    uiTheme: UiThemePreset;
+    language: UiLanguage;
+  }>;
   setScale(scale: UiScalePercent): Promise<void>;
   setTheme(theme: UiThemePreset): Promise<void>;
+  setLanguage(language: UiLanguage): Promise<void>;
   findFlashTool(): Promise<string | null>;
   listSerialPorts(): Promise<string[]>;
   flashDefaultFiles(): Promise<FlashFile[]>;
@@ -43,6 +49,7 @@ const api: BridgeApi = {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   setScale: (scale) => ipcRenderer.invoke('settings:setScale', scale),
   setTheme: (theme) => ipcRenderer.invoke('settings:setTheme', theme),
+  setLanguage: (language) => ipcRenderer.invoke('settings:setLanguage', language),
   findFlashTool: () => ipcRenderer.invoke('flash:findTool'),
   listSerialPorts: () => ipcRenderer.invoke('flash:listPorts'),
   flashDefaultFiles: () => ipcRenderer.invoke('flash:defaultFiles'),

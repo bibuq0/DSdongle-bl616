@@ -3,6 +3,7 @@ import path from 'node:path';
 import type { DualsenseConfig, RemapTable } from '../shared/protocol';
 import type {
   FlashFile,
+  UiLanguage,
   UiScalePercent,
   UiThemePreset
 } from '../shared/types';
@@ -78,6 +79,9 @@ function registerIpc(service: BridgeService, settings: SettingsStore): void {
   );
   ipcMain.handle('settings:setTheme', (_event: IpcMainInvokeEvent, theme: UiThemePreset) =>
     settings.setTheme(theme)
+  );
+  ipcMain.handle('settings:setLanguage', (_event: IpcMainInvokeEvent, language: UiLanguage) =>
+    settings.setLanguage(language)
   );
 
   ipcMain.handle('flash:findTool', () => findFlashCommand());

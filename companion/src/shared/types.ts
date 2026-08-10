@@ -2,6 +2,7 @@ import type { DualsenseConfig, RemapTable, BridgeStatus } from './protocol';
 
 export type UiScalePercent = 75 | 100 | 125 | 150;
 export type UiThemePreset = 'light' | 'dark';
+export type UiLanguage = 'en' | 'zh';
 
 export interface HidDeviceSummary {
   path: string;
