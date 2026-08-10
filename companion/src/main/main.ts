@@ -27,7 +27,7 @@ function createWindow(): BrowserWindow {
     title: 'DS5 Dongle Config',
     backgroundColor: '#121418',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, '../preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true
@@ -37,7 +37,8 @@ function createWindow(): BrowserWindow {
   if (process.env.VITE_DEV_SERVER_URL) {
     void window.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
-    void window.loadFile(path.join(__dirname, '../renderer/index.html'));
+    // __dirname = dist/main/main -> dist/main/preload.js, dist/renderer/index.html
+    void window.loadFile(path.join(__dirname, '../../renderer/index.html'));
   }
 
   window.on('closed', () => {
