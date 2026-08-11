@@ -41,6 +41,7 @@
     ],
     "npmRebuild": false,
     "win": {
+      "icon": "assets/icons/ds5dongle.ico",
       "signAndEditExecutable": false,
       "target": [
         {

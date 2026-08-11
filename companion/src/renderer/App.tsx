@@ -163,7 +163,27 @@ function WindowBar(): React.JSX.Element {
   return (
     <div className="window-bar">
       <div className="window-bar-brand">
-        <span className="mark" />
+        <svg width="16" height="16" viewBox="0 0 512 512" aria-hidden="true">
+          <defs>
+            <linearGradient id="wb-bg" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="#1d6fd6" />
+              <stop offset="1" stopColor="#08203f" />
+            </linearGradient>
+            <linearGradient id="wb-front" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="#ffffff" />
+              <stop offset="1" stopColor="#cfe8ff" />
+            </linearGradient>
+            <linearGradient id="wb-back" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="#66b3ff" />
+              <stop offset="1" stopColor="#1c66b8" />
+            </linearGradient>
+          </defs>
+          <rect width="512" height="512" rx="96" fill="url(#wb-bg)" />
+          <circle cx="210" cy="256" r="118" fill="none" stroke="url(#wb-front)" strokeWidth="36" />
+          <circle cx="302" cy="256" r="118" fill="none" stroke="url(#wb-back)" strokeWidth="34" />
+          <path d="M92 256 a118 118 0 0 1 236 0" fill="none" stroke="url(#wb-front)" strokeWidth="36" strokeLinecap="round" />
+          <circle cx="256" cy="250" r="16" fill="#ffffff" />
+        </svg>
         DS5 Dongle
       </div>
       <div className="window-actions">

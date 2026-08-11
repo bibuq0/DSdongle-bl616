@@ -29,6 +29,7 @@ function createWindow(): BrowserWindow {
     frame: false,
     backgroundColor: '#050b13',
     show: false,
+    icon: path.join(__dirname, '../../assets/icons/ds5dongle.ico'),
     webPreferences: {
       preload: path.join(__dirname, '../preload.js'),
       contextIsolation: true,

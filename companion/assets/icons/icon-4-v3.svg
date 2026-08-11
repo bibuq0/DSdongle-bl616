@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1d6fd6"/>
+      <stop offset="1" stop-color="#08203f"/>
+    </linearGradient>
+    <linearGradient id="ringFront" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#cfe8ff"/>
+    </linearGradient>
+    <linearGradient id="ringBack" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#66b3ff"/>
+      <stop offset="1" stop-color="#1c66b8"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+
+  <!-- ring 2 (right, back) -->
+  <circle cx="306" cy="256" r="112" fill="none" stroke="url(#ringBack)" stroke-width="34"/>
+  <!-- ring 1 (left, front) -->
+  <circle cx="206" cy="256" r="112" fill="none" stroke="url(#ringFront)" stroke-width="36"/>
+
+  <!-- wifi signal at center -->
+  <path d="M226 232 a30 30 0 0 1 60 0" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round"/>
+  <path d="M238 252 a16 16 0 0 1 36 0" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="256" cy="266" r="7" fill="#ffffff"/>
+</svg>

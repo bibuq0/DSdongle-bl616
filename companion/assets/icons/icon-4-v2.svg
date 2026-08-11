@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1d6fd6"/>
+      <stop offset="0.55" stop-color="#0d3a74"/>
+      <stop offset="1" stop-color="#061b38"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.12" r="0.75">
+      <stop offset="0" stop-color="#5cabff" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#5cabff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ringFront" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#cfe8ff"/>
+    </linearGradient>
+    <linearGradient id="ringBack" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#57aeff"/>
+      <stop offset="1" stop-color="#175cb0"/>
+    </linearGradient>
+    <linearGradient id="core" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#cfe8ff"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="96" fill="url(#glow)"/>
+
+  <!-- back ring (dimmer, sits behind) -->
+  <circle cx="256" cy="304" r="120" fill="none" stroke="url(#ringBack)" stroke-width="36"/>
+  <!-- drop shadow under front ring -->
+  <circle cx="254" cy="214" r="120" fill="none" stroke="#02101f" stroke-width="38" opacity="0.28"/>
+  <!-- front ring (white, overlaps back ring) -->
+  <circle cx="256" cy="212" r="120" fill="none" stroke="url(#ringFront)" stroke-width="36"/>
+  <!-- outer hint ring -->
+  <circle cx="256" cy="258" r="158" fill="none" stroke="#ffffff" stroke-width="4" opacity="0.16"/>
+
+  <!-- center core: halo + dot -->
+  <circle cx="256" cy="258" r="70" fill="none" stroke="#ffffff" stroke-width="6" opacity="0.28"/>
+  <circle cx="256" cy="258" r="46" fill="url(#core)"/>
+  <circle cx="256" cy="258" r="30" fill="#1d6fd6"/>
+
+  <!-- wireless antenna -->
+  <path d="M256 122 v-34" stroke="#4cc38a" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="256" cy="76" r="11" fill="#4cc38a"/>
+</svg>

@@ -129,11 +129,8 @@ select {
   color: var(--text-primary);
 }
 
-.window-bar-brand .mark {
-  width: 16px;
-  height: 16px;
+.window-bar-brand svg {
   border-radius: 4px;
-  background: linear-gradient(135deg, var(--accent), #12a5ff);
 }
 
 .window-actions {
