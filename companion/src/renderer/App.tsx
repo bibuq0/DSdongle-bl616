@@ -606,8 +606,8 @@ function Buttons({
     );
   };
 
-  const leftPills = [6, 4, 8, 15, 16, 17, 18, 10].map(remapPill); // L2 L1 Create Up Left Down Right L3
-  const rightPills = [7, 5, 9, 3, 2, 1, 0, 11].map(remapPill); // R2 R1 Options Tri Circ Cross Sq R3
+  const leftPills = [6, 4, 8, 15, 16, 18, 17, 10].map(remapPill); // L2 L1 Create Up Left Right Down L3
+  const rightPills = [7, 5, 9, 3, 2, 0, 1, 11].map(remapPill); // R2 R1 Options Tri Circ Square Cross R3
   const bottomPills = [13, 12, 14].map(remapPill); // Touchpad PS Mute
 
   // Anchor positions on the controller art, as % of the art element
@@ -658,26 +658,25 @@ function Buttons({
         const entry = remap[index];
         const mapped = entry ? entry.value !== index : false;
 
-        // Independent smooth bezier leader — no shared path segments.
+        // Mirrored 3-segment polyline, ending exactly at the button center.
         let d = '';
         if (pr.left < artRect.left) {
-          // left column: start at pill right edge, curve right into anchor
+          // left column: out the right edge -> art left edge -> anchor
           const sx = pr.right - wrapRect.left;
           const sy = pr.top - wrapRect.top + pr.height / 2;
-          const mx = (sx + ax) / 2;
-          d = `M ${sx} ${sy} C ${mx} ${sy}, ${mx} ${ay}, ${ax} ${ay}`;
+          const x1 = artRect.left - wrapRect.left;
+          d = `M ${sx} ${sy} H ${x1} V ${ay} H ${ax}`;
         } else if (pr.left > artRect.right) {
-          // right column: start at pill left edge, curve left into anchor
+          // right column (mirror): out the left edge -> art right edge -> anchor
           const sx = pr.left - wrapRect.left;
           const sy = pr.top - wrapRect.top + pr.height / 2;
-          const mx = (sx + ax) / 2;
-          d = `M ${sx} ${sy} C ${mx} ${sy}, ${mx} ${ay}, ${ax} ${ay}`;
+          const x1 = artRect.right - wrapRect.left;
+          d = `M ${sx} ${sy} H ${x1} V ${ay} H ${ax}`;
         } else {
-          // bottom row: start at pill top center, curve up into anchor
+          // bottom row: straight up from pill top center into anchor
           const sx = pr.left - wrapRect.left + pr.width / 2;
           const sy = pr.top - wrapRect.top;
-          const my = (sy + ay) / 2;
-          d = `M ${sx} ${sy} C ${sx} ${my}, ${ax} ${my}, ${ax} ${ay}`;
+          d = `M ${sx} ${sy} V ${ay} H ${ax}`;
         }
         next.push({ index, d, mapped });
       }
