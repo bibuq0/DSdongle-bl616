@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
   Gamepad2,
@@ -582,6 +582,9 @@ function Buttons({
 }): React.JSX.Element {
   const { t } = useI18n();
   const [editing, setEditing] = useState<number | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const artRef = useRef<HTMLImageElement>(null);
+  const [lines, setLines] = useState<Array<{ index: number; points: string; mapped: boolean }>>([]);
 
   const remapPill = (index: number) => {
     const entry = remap[index];
@@ -591,6 +594,7 @@ function Buttons({
       <button
         key={index}
         type="button"
+        data-pill-index={index}
         className={`remap-pill${mapped ? ' changed' : ''}${editing === index ? ' editing' : ''}`}
         onClick={() => setEditing(editing === index ? null : index)}
         title={`${t(buttonNameKey(index))} → ${t(buttonNameKey(target))}`}
@@ -606,15 +610,97 @@ function Buttons({
   const rightPills = [7, 5, 9, 3, 2, 1, 0, 11].map(remapPill); // R2 R1 Options Tri Circ Cross Sq R3
   const bottomPills = [13, 12, 14].map(remapPill); // Touchpad PS Mute
 
+  // Anchor positions on the controller art, as % of the art element
+  const anchors = useMemo<Record<number, { x: number; y: number }>>(
+    () => ({
+      0: { x: 68, y: 46 }, // square
+      1: { x: 73, y: 52 }, // cross
+      2: { x: 79, y: 45 }, // circle
+      3: { x: 74, y: 39 }, // triangle
+      4: { x: 25, y: 29 }, // l1
+      5: { x: 72, y: 29 }, // r1
+      6: { x: 26, y: 23 }, // l2
+      7: { x: 70, y: 23 }, // r2
+      8: { x: 32, y: 35 }, // create
+      9: { x: 68, y: 35 }, // options
+      10: { x: 38, y: 63 }, // l3
+      11: { x: 62, y: 63 }, // r3
+      12: { x: 50, y: 59 }, // ps
+      13: { x: 50, y: 49 }, // touchpad
+      14: { x: 50, y: 64 }, // mute
+      15: { x: 29, y: 41 }, // dpad-up
+      16: { x: 25, y: 47 }, // dpad-left
+      17: { x: 29, y: 52 }, // dpad-down
+      18: { x: 32, y: 47 } // dpad-right
+    }),
+    []
+  );
+
+  useLayoutEffect(() => {
+    const wrap = wrapRef.current;
+    const art = artRef.current;
+    if (!wrap || !art) {
+      return;
+    }
+    const compute = (): void => {
+      const wrapRect = wrap.getBoundingClientRect();
+      const artRect = art.getBoundingClientRect();
+      const next: Array<{ index: number; points: string; mapped: boolean }> = [];
+      for (let index = 0; index < 19; index++) {
+        const pill = wrap.querySelector<HTMLElement>(`[data-pill-index="${index}"]`);
+        if (!pill) {
+          continue;
+        }
+        const pr = pill.getBoundingClientRect();
+        const anchor = anchors[index];
+        const ax = artRect.left - wrapRect.left + (anchor.x / 100) * artRect.width;
+        const ay = artRect.top - wrapRect.top + (anchor.y / 100) * artRect.height;
+        const entry = remap[index];
+        const mapped = entry ? entry.value !== index : false;
+        let points = '';
+        if (pr.left < artRect.left) {
+          // left column
+          const sy = pr.top - wrapRect.top + pr.height / 2;
+          points = `${pr.left - wrapRect.left},${sy} ${artRect.left - wrapRect.left},${sy} ${artRect.left - wrapRect.left},${ay} ${ax},${ay}`;
+        } else if (pr.left > artRect.right) {
+          // right column
+          const sy = pr.top - wrapRect.top + pr.height / 2;
+          points = `${pr.right - wrapRect.left},${sy} ${artRect.right - wrapRect.left},${sy} ${artRect.right - wrapRect.left},${ay} ${ax},${ay}`;
+        } else {
+          // bottom row
+          const sx = pr.left - wrapRect.left + pr.width / 2;
+          points = `${sx},${pr.top - wrapRect.top} ${sx},${artRect.bottom - wrapRect.top} ${ax},${artRect.bottom - wrapRect.top} ${ax},${ay}`;
+        }
+        next.push({ index, points, mapped });
+      }
+      setLines(next);
+    };
+    compute();
+    const onResize = (): void => compute();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [remap, anchors]);
+
   return (
     <div className="feature-card-grid single">
       <Card title={t('buttons.title')} subtitle={t('buttons.intro')}>
-        <div className="remap-grid">
-          <div className="remap-col">{leftPills}</div>
-          <img className="remap-art" src={remapLayoutArt} alt="" />
-          <div className="remap-col">{rightPills}</div>
+        <div className="remap-wrap" ref={wrapRef}>
+          <div className="remap-grid">
+            <div className="remap-col">{leftPills}</div>
+            <img ref={artRef} className="remap-art" src={remapLayoutArt} alt="" />
+            <div className="remap-col">{rightPills}</div>
+          </div>
+          <div className="remap-bottom">{bottomPills}</div>
+          <svg className="remap-callout-layer" aria-hidden="true">
+            {lines.map((line) => (
+              <polyline
+                key={line.index}
+                points={line.points}
+                className={line.mapped ? 'active' : undefined}
+              />
+            ))}
+          </svg>
         </div>
-        <div className="remap-bottom">{bottomPills}</div>
         {editing !== null ? (
           <TargetPicker
             source={editing}
