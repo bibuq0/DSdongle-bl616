@@ -610,28 +610,28 @@ function Buttons({
   const rightPills = [7, 5, 9, 3, 2, 0, 1, 11].map(remapPill); // R2 R1 Options Tri Circ Square Cross R3
   const bottomPills = [13, 12, 14].map(remapPill); // Touchpad PS Mute
 
-  // Anchor positions on the controller art, as % of the art element
+  // Anchor positions = actual button centers on the art (extracted from SVG)
   const anchors = useMemo<Record<number, { x: number; y: number }>>(
     () => ({
-      0: { x: 68, y: 46 }, // square
-      1: { x: 73, y: 52 }, // cross
-      2: { x: 79, y: 45 }, // circle
-      3: { x: 74, y: 39 }, // triangle
-      4: { x: 25, y: 29 }, // l1
-      5: { x: 72, y: 29 }, // r1
-      6: { x: 26, y: 23 }, // l2
-      7: { x: 70, y: 23 }, // r2
-      8: { x: 32, y: 35 }, // create
-      9: { x: 68, y: 35 }, // options
-      10: { x: 38, y: 63 }, // l3
-      11: { x: 62, y: 63 }, // r3
-      12: { x: 50, y: 59 }, // ps
-      13: { x: 50, y: 49 }, // touchpad
-      14: { x: 50, y: 64 }, // mute
-      15: { x: 29, y: 41 }, // dpad-up
-      16: { x: 25, y: 47 }, // dpad-left
-      17: { x: 29, y: 52 }, // dpad-down
-      18: { x: 32, y: 47 } // dpad-right
+      0: { x: 68.4, y: 48.1 }, // square
+      1: { x: 73.9, y: 53.1 }, // cross
+      2: { x: 79.1, y: 47.8 }, // circle
+      3: { x: 73.5, y: 40.2 }, // triangle
+      4: { x: 25.2, y: 28.9 }, // l1
+      5: { x: 70.2, y: 29.0 }, // r1
+      6: { x: 25.8, y: 23.5 }, // l2
+      7: { x: 69.8, y: 24.1 }, // r2
+      8: { x: 32.1, y: 38.1 }, // create
+      9: { x: 67.8, y: 38.0 }, // options
+      10: { x: 38.2, y: 60.4 }, // l3
+      11: { x: 61.9, y: 60.4 }, // r3
+      12: { x: 50.0, y: 59.0 }, // ps
+      13: { x: 50.0, y: 49.0 }, // touchpad
+      14: { x: 50.3, y: 63.0 }, // mute
+      15: { x: 26.5, y: 42.6 }, // dpad-up
+      16: { x: 22.0, y: 48.0 }, // dpad-left
+      17: { x: 26.5, y: 51.9 }, // dpad-down
+      18: { x: 31.5, y: 47.5 } // dpad-right
     }),
     []
   );
