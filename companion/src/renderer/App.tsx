@@ -658,25 +658,23 @@ function Buttons({
         const entry = remap[index];
         const mapped = entry ? entry.value !== index : false;
 
-        // Mirrored 3-segment polyline, ending exactly at the button center.
+        // Pill -> art edge (horizontal) -> anchor (angled), mirrored left/right.
         let d = '';
         if (pr.left < artRect.left) {
-          // left column: out the right edge -> art left edge -> anchor
           const sx = pr.right - wrapRect.left;
           const sy = pr.top - wrapRect.top + pr.height / 2;
           const x1 = artRect.left - wrapRect.left;
-          d = `M ${sx} ${sy} H ${x1} V ${ay} H ${ax}`;
+          d = `M ${sx} ${sy} H ${x1} L ${ax} ${ay}`;
         } else if (pr.left > artRect.right) {
-          // right column (mirror): out the left edge -> art right edge -> anchor
           const sx = pr.left - wrapRect.left;
           const sy = pr.top - wrapRect.top + pr.height / 2;
           const x1 = artRect.right - wrapRect.left;
-          d = `M ${sx} ${sy} H ${x1} V ${ay} H ${ax}`;
+          d = `M ${sx} ${sy} H ${x1} L ${ax} ${ay}`;
         } else {
-          // bottom row: straight up from pill top center into anchor
+          // bottom row: straight angled line up from pill top center
           const sx = pr.left - wrapRect.left + pr.width / 2;
           const sy = pr.top - wrapRect.top;
-          d = `M ${sx} ${sy} V ${ay} H ${ax}`;
+          d = `M ${sx} ${sy} L ${ax} ${ay}`;
         }
         next.push({ index, d, mapped });
       }
