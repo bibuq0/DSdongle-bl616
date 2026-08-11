@@ -22,8 +22,10 @@
 export const REPORT_LENGTH = 64;
 export const CONFIG_BODY_SIZE = 25;
 export const REMAP_ENTRY_SIZE = 4;
-export const REMAP_BUTTON_COUNT = 15;
+export const REMAP_BUTTON_COUNT = 19;
 export const REMAP_TABLE_SIZE = REMAP_ENTRY_SIZE * REMAP_BUTTON_COUNT;
+/** Full 0xFB report: report id + sub-command + table (send) / report id + table (get). */
+export const REMAP_REPORT_LENGTH = 80;
 
 export const REPORT_ID = {
   CONFIG_SET: 0xf6,
@@ -89,6 +91,14 @@ export const REMAP_BUTTON = {
 export const REMAP_TYPE = {
   BTN: 0,
   KBD: 1
+} as const;
+
+/** D-pad direction nibble values (DS5_DPAD_*). */
+export const REMAP_DPAD_VALUE = {
+  UP: 0,
+  RIGHT: 2,
+  DOWN: 4,
+  LEFT: 6
 } as const;
 
 export const REMAP_FLAG_SUPPRESS = 0x01;
@@ -429,10 +439,21 @@ export const REMAP_BUTTON_IDS = [
   'r3',
   'ps',
   'touchpad',
-  'mute'
+  'mute',
+  'dpad-up',
+  'dpad-left',
+  'dpad-down',
+  'dpad-right'
 ] as const;
 
 export type RemapButtonId = (typeof REMAP_BUTTON_IDS)[number];
+
+export const REMAP_DPAD_BUTTONS: Record<'dpad-up' | 'dpad-left' | 'dpad-down' | 'dpad-right', number> = {
+  'dpad-up': REMAP_DPAD_VALUE.UP,
+  'dpad-left': REMAP_DPAD_VALUE.LEFT,
+  'dpad-down': REMAP_DPAD_VALUE.DOWN,
+  'dpad-right': REMAP_DPAD_VALUE.RIGHT
+};
 
 export function remapButtonIdValue(buttonId: RemapButtonId): number {
   const index = REMAP_BUTTON_IDS.indexOf(buttonId);

@@ -3,6 +3,7 @@ import {
   CONFIG_CMD,
   DEFAULT_REMAP_TABLE,
   REMAP_CMD,
+  REMAP_REPORT_LENGTH,
   REPORT_ID,
   buildConfigSetReport,
   buildRemapSetReport,
@@ -335,7 +336,7 @@ export class BridgeService extends EventEmitter {
       return;
     }
     try {
-      const raw = await this.device.getFeatureReport(REPORT_ID.REMAP);
+      const raw = await this.device.getFeatureReport(REPORT_ID.REMAP, REMAP_REPORT_LENGTH);
       this.lastRemap = parseRemapReport(raw);
     } catch {
       // ignored

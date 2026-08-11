@@ -1,5 +1,6 @@
 #include "remap.h"
 #include "usb_gamepad.h"
+#include "ds5_protocol.h"
 #include "debug_log.h"
 #include "easyflash.h"
 #include <string.h>
@@ -12,7 +13,8 @@
 /* p[9]:  PS[0] TP_click[1] Mute[2]                                   */
 /* ------------------------------------------------------------------ */
 
-/* Maps button ID → (byte_offset, bit_mask) in the 63-byte payload */
+/* Maps button ID → (byte_offset, bit_mask) in the 63-byte payload.
+ * D-pad entries share byte 7's low nibble and are handled specially. */
 static const struct { uint8_t off; uint8_t mask; } BTN_LOC[REMAP_BTN_COUNT] = {
     [REMAP_BTN_SQUARE]   = { 7, 0x10 },
     [REMAP_BTN_CROSS]    = { 7, 0x20 },
@@ -29,7 +31,23 @@ static const struct { uint8_t off; uint8_t mask; } BTN_LOC[REMAP_BTN_COUNT] = {
     [REMAP_BTN_PS]       = { 9, 0x01 },
     [REMAP_BTN_TP_CLICK] = { 9, 0x02 },
     [REMAP_BTN_MUTE]     = { 9, 0x04 },
+    /* D-pad directions live in byte 7 low nibble (0=N,2=E,4=S,6=W) */
+    [REMAP_BTN_DPAD_UP]    = { 7, 0x0F },
+    [REMAP_BTN_DPAD_LEFT]  = { 7, 0x0F },
+    [REMAP_BTN_DPAD_DOWN]  = { 7, 0x0F },
+    [REMAP_BTN_DPAD_RIGHT] = { 7, 0x0F },
 };
+
+static uint8_t dpad_dir_value(uint8_t id)
+{
+    switch (id) {
+    case REMAP_BTN_DPAD_UP:    return DS5_DPAD_N;
+    case REMAP_BTN_DPAD_LEFT:  return DS5_DPAD_W;
+    case REMAP_BTN_DPAD_DOWN:  return DS5_DPAD_S;
+    case REMAP_BTN_DPAD_RIGHT: return DS5_DPAD_E;
+    default:                   return DS5_DPAD_NONE;
+    }
+}
 
 /* ------------------------------------------------------------------ */
 /* Module state                                                         */
@@ -141,8 +159,17 @@ void remap_apply(uint8_t *p)
 
     /* Extract all source bits and analog values before modifying */
     uint8_t src[REMAP_BTN_COUNT];
-    for (int i = 0; i < REMAP_BTN_COUNT; i++)
-        src[i] = get_src_bit(p, i);
+    uint8_t dpad_nib = p[7] & 0x0F;
+    for (int i = 0; i < REMAP_BTN_COUNT; i++) {
+        if (i < REMAP_BTN_DPAD_UP)
+            src[i] = get_src_bit(p, i);
+        else
+            src[i] = 0;
+    }
+    src[REMAP_BTN_DPAD_UP]    = (dpad_nib == DS5_DPAD_N);
+    src[REMAP_BTN_DPAD_LEFT]  = (dpad_nib == DS5_DPAD_W);
+    src[REMAP_BTN_DPAD_DOWN]  = (dpad_nib == DS5_DPAD_S);
+    src[REMAP_BTN_DPAD_RIGHT] = (dpad_nib == DS5_DPAD_E);
     uint8_t analog_l2 = p[4];
     uint8_t analog_r2 = p[5];
 
@@ -170,12 +197,38 @@ void remap_apply(uint8_t *p)
         p[5] = analog_l2;
     }
 
+    /* D-pad nibble: a remapped source that targets a direction wins;
+     * otherwise clear the nibble when a D-pad direction was remapped away. */
+    uint8_t new_nib = dpad_nib;
+    bool dpad_target_set = false;
+    for (int i = 0; i < REMAP_BTN_COUNT; i++) {
+        if (!src[i] || g_remap[i].type != REMAP_TYPE_BTN)
+            continue;
+        uint8_t v = g_remap[i].value;
+        if (v >= REMAP_BTN_DPAD_UP && v <= REMAP_BTN_DPAD_RIGHT) {
+            new_nib = dpad_dir_value(v);
+            dpad_target_set = true;
+        }
+    }
+    if (!dpad_target_set) {
+        bool dpad_remapped_away = false;
+        for (int i = REMAP_BTN_DPAD_UP; i <= REMAP_BTN_DPAD_RIGHT; i++) {
+            if (src[i] && g_remap[i].value != (uint8_t)i) {
+                dpad_remapped_away = true;
+                break;
+            }
+        }
+        if (dpad_remapped_away)
+            new_nib = DS5_DPAD_NONE;
+    }
+
     /* Write back button bytes, preserving d-pad nibble in byte 7 */
-    p[7] = (p[7] & 0x0F)
+    p[7] = (p[7] & 0xF0)
          | (dst[REMAP_BTN_SQUARE]   ? 0x10 : 0)
          | (dst[REMAP_BTN_CROSS]    ? 0x20 : 0)
          | (dst[REMAP_BTN_CIRCLE]   ? 0x40 : 0)
          | (dst[REMAP_BTN_TRIANGLE] ? 0x80 : 0);
+    p[7] = (p[7] & 0xF0) | (new_nib & 0x0F);
 
     p[8] = (dst[REMAP_BTN_L1]      ? 0x01 : 0)
          | (dst[REMAP_BTN_R1]      ? 0x02 : 0)

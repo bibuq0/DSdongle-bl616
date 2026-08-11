@@ -602,9 +602,9 @@ function Buttons({
     );
   };
 
-  const leftPills = [6, 4, 8, 10].map(remapPill); // l2 l1 create l3
-  const rightPills = [7, 5, 9, 3, 0, 1, 2, 11].map(remapPill); // r2 r1 options tri sq cross circ r3
-  const bottomPills = [13, 12, 14].map(remapPill); // touchpad ps mute
+  const leftPills = [6, 4, 8, 15, 16, 17, 18, 10].map(remapPill); // L2 L1 Create Up Left Down Right L3
+  const rightPills = [7, 5, 9, 3, 2, 1, 0, 11].map(remapPill); // R2 R1 Options Tri Circ Cross Sq R3
+  const bottomPills = [13, 12, 14].map(remapPill); // Touchpad PS Mute
 
   return (
     <div className="feature-card-grid single">

@@ -12,6 +12,7 @@ import HID from 'node-hid';
 import { REPORT_ID } from '../shared/protocol';
 
 const REPORT_LENGTH = 64;
+const MAX_TRANSPORT_REPORT_LENGTH = 96;
 const DEFAULT_OPEN_RETRY_DELAY_MS = 200;
 const HID_USAGE_PAGE_GAME = 0x01;
 const HID_USAGE_GAMEPAD = 0x05;
@@ -100,11 +101,11 @@ export class HidCompanionTransport extends EventEmitter {
     return new HidCompanionTransport(hid, path);
   }
 
-  async getFeatureReport(reportId: number, _length = REPORT_LENGTH): Promise<number[]> {
+  async getFeatureReport(reportId: number, length = REPORT_LENGTH): Promise<number[]> {
     if (this.closed) {
       throw new Error('HID transport is closed');
     }
-    const buffer = await this.device.getFeatureReport(reportId & 0xff, REPORT_LENGTH);
+    const buffer = await this.device.getFeatureReport(reportId & 0xff, length);
     return Array.from(buffer);
   }
 
@@ -139,11 +140,16 @@ export class HidCompanionTransport extends EventEmitter {
 }
 
 function normalizeReport(report: ArrayLike<number>): number[] {
-  if (report.length < 1 || report.length > REPORT_LENGTH) {
-    throw new Error(`Expected 1-${REPORT_LENGTH} report bytes, received ${report.length}.`);
+  if (report.length < 1 || report.length > MAX_TRANSPORT_REPORT_LENGTH) {
+    throw new Error(
+      `Expected 1-${MAX_TRANSPORT_REPORT_LENGTH} report bytes, received ${report.length}.`
+    );
   }
-  const data = new Array<number>(REPORT_LENGTH).fill(0);
-  for (let i = 0; i < report.length; i++) {
+  // 0xFB remap reports are 80 data bytes + report id (81); others are 64.
+  const reportLength = (report[0] & 0xff) === REPORT_ID.REMAP ? 81 : REPORT_LENGTH;
+  const data = new Array<number>(reportLength).fill(0);
+  const copy = Math.min(report.length, reportLength);
+  for (let i = 0; i < copy; i++) {
     data[i] = report[i] & 0xff;
   }
   return data;

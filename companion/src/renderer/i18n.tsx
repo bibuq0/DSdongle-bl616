@@ -115,7 +115,11 @@ const zh = {
   'btn.r3': 'R3',
   'btn.ps': 'PS',
   'btn.touchpad': '触控板',
-  'btn.mute': '静音'
+  'btn.mute': '静音',
+  'btn.dpad-up': '上',
+  'btn.dpad-left': '左',
+  'btn.dpad-down': '下',
+  'btn.dpad-right': '右'
 } as const;
 
 const en: Record<keyof typeof zh, string> = {
@@ -232,7 +236,11 @@ const en: Record<keyof typeof zh, string> = {
   'btn.r3': 'R3',
   'btn.ps': 'PS',
   'btn.touchpad': 'Touchpad',
-  'btn.mute': 'Mute'
+  'btn.mute': 'Mute',
+  'btn.dpad-up': 'D-pad Up',
+  'btn.dpad-left': 'D-pad Left',
+  'btn.dpad-down': 'D-pad Down',
+  'btn.dpad-right': 'D-pad Right'
 };
 
 export type TranslationKey = keyof typeof zh;

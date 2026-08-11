@@ -8,7 +8,7 @@
 /* for future use but ignored by firmware.                             */
 /* ------------------------------------------------------------------ */
 
-#define REMAP_BTN_COUNT  15
+#define REMAP_BTN_COUNT  19
 
 /* Source button IDs (index into g_remap[]) */
 #define REMAP_BTN_SQUARE    0
@@ -26,6 +26,10 @@
 #define REMAP_BTN_PS        12
 #define REMAP_BTN_TP_CLICK  13
 #define REMAP_BTN_MUTE      14
+#define REMAP_BTN_DPAD_UP    15
+#define REMAP_BTN_DPAD_LEFT  16
+#define REMAP_BTN_DPAD_DOWN  17
+#define REMAP_BTN_DPAD_RIGHT 18
 
 /* Target types */
 #define REMAP_TYPE_BTN 0   /* value = target button ID 0-14 */
