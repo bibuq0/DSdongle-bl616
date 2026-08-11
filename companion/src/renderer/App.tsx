@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
+  ArrowRight,
   Gamepad2,
   Joystick,
   LayoutDashboard,
   Lightbulb,
-  MicOff,
+  Mic,
   Minus,
   Moon,
   Settings,
@@ -660,12 +661,18 @@ function Buttons({
         title={`${t(buttonNameKey(index))} → ${t(buttonNameKey(target))}`}
       >
         <span className="rp-src">
-          <Glyph url={buttonGlyph(index)} size={22} title={t(buttonNameKey(index))} />
-        </span>
-        <span className="rp-arrow">→</span>
-        <span className="rp-dst">
           {index === 14 ? (
-            <MicOff size={22} />
+            <Mic size={22} />
+          ) : (
+            <Glyph url={buttonGlyph(index)} size={22} title={t(buttonNameKey(index))} />
+          )}
+        </span>
+        <span className="rp-arrow">
+          <ArrowRight width={38} height={14} strokeWidth={3} />
+        </span>
+        <span className="rp-dst">
+          {target === 14 ? (
+            <Mic size={24} />
           ) : (
             <Glyph url={buttonGlyph(target)} size={24} title={t(buttonNameKey(target))} />
           )}
@@ -737,7 +744,7 @@ function TargetPicker({
             title={t(buttonNameKey(targetIndex))}
           >
             {targetIndex === 14 ? (
-              <MicOff size={20} />
+              <Mic size={20} />
             ) : (
               <Glyph url={buttonGlyph(targetIndex)} size={20} />
             )}

@@ -662,8 +662,7 @@ input[type='color'] {
 }
 
 .remap-pill .rp-arrow {
-  color: var(--text-dim);
-  font-size: 13px;
+  color: var(--accent);
   display: inline-flex;
   align-items: center;
   line-height: 0;
