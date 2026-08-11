@@ -591,29 +591,16 @@ input[type='color'] {
   position: relative;
 }
 
-.remap-callout-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  pointer-events: none;
-}
-
-.remap-callout-layer path {
-  fill: none;
-  stroke: var(--surface-border-strong);
-  stroke-width: 1.1;
-  stroke-linecap: round;
-  opacity: 0.75;
-  transition: stroke 0.14s ease, opacity 0.14s ease, stroke-width 0.14s ease;
-}
-
-.remap-callout-layer path.active {
-  stroke: var(--accent);
-  stroke-width: 1.5;
-  opacity: 0.95;
+.glyph {
+  display: inline-block;
+  flex: none;
+  background: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
 }
 
 .remap-grid {

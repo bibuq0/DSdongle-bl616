@@ -1,10 +1,11 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   Gamepad2,
   Joystick,
   LayoutDashboard,
   Lightbulb,
+  MicOff,
   Minus,
   Moon,
   Settings,
@@ -25,6 +26,24 @@ import {
 } from '../shared/protocol';
 import type { BridgeSnapshot, FlashFile, UiLanguage } from '../shared/types';
 import remapLayoutArt from '../../assets/controllers/dualsense-remapping-layout.svg';
+import circleGlyph from '../../assets/glyphs/ps5-buttons-outline-white/svg/Circle.svg';
+import createGlyph from '../../assets/glyphs/ps5-buttons-outline-white/svg/Create.svg';
+import crossGlyph from '../../assets/glyphs/ps5-buttons-outline-white/svg/Cross.svg';
+import squareGlyph from '../../assets/glyphs/ps5-buttons-outline-white/svg/Square.svg';
+import triangleGlyph from '../../assets/glyphs/ps5-buttons-outline-white/svg/Triangle.svg';
+import l1Glyph from '../../assets/glyphs/ps5-buttons-outline-white/svg/L1.svg';
+import l2Glyph from '../../assets/glyphs/ps5-buttons-outline-white/svg/L2.svg';
+import r1Glyph from '../../assets/glyphs/ps5-buttons-outline-white/svg/R1.svg';
+import r2Glyph from '../../assets/glyphs/ps5-buttons-outline-white/svg/R2.svg';
+import createOptionsGlyph from '../../assets/glyphs/ps5-buttons-outline-white/svg/Options.svg';
+import l3Glyph from '../../assets/glyphs/ps5-buttons-outline-white/svg/Left Stick Click.svg';
+import r3Glyph from '../../assets/glyphs/ps5-buttons-outline-white/svg/Right Stick Click.svg';
+import psGlyph from '../../assets/glyphs/ps5-buttons-outline-white/svg/Home.svg';
+import touchpadGlyph from '../../assets/glyphs/ps5-buttons-outline-white/svg/Touch Pad Press.svg';
+import dpadUpGlyph from '../../assets/glyphs/ps5-buttons-outline-white/svg/D-Pad Up.svg';
+import dpadLeftGlyph from '../../assets/glyphs/ps5-buttons-outline-white/svg/D-Pad Left.svg';
+import dpadDownGlyph from '../../assets/glyphs/ps5-buttons-outline-white/svg/D-Pad Down.svg';
+import dpadRightGlyph from '../../assets/glyphs/ps5-buttons-outline-white/svg/D-Pad Right.svg';
 import { useI18n, type TranslationKey } from './i18n';
 import { useTheme } from './theme';
 
@@ -571,6 +590,51 @@ function Lighting({
   );
 }
 
+const BUTTON_GLYPHS: Record<number, string> = {
+  0: squareGlyph,
+  1: crossGlyph,
+  2: circleGlyph,
+  3: triangleGlyph,
+  4: l1Glyph,
+  5: r1Glyph,
+  6: l2Glyph,
+  7: r2Glyph,
+  8: createGlyph,
+  9: createOptionsGlyph,
+  10: l3Glyph,
+  11: r3Glyph,
+  12: psGlyph,
+  13: touchpadGlyph,
+  15: dpadUpGlyph,
+  16: dpadLeftGlyph,
+  17: dpadDownGlyph,
+  18: dpadRightGlyph
+};
+
+/** Icon in currentColor via CSS mask — theme-aware. */
+function Glyph({
+  url,
+  size = 18,
+  title
+}: {
+  url: string;
+  size?: number;
+  title?: string;
+}): React.JSX.Element {
+  const mask = `url("${url}")`;
+  return (
+    <span
+      className="glyph"
+      title={title}
+      style={{ width: size, height: size, WebkitMaskImage: mask, maskImage: mask }}
+    />
+  );
+}
+
+function buttonGlyph(index: number): string {
+  return BUTTON_GLYPHS[index] ?? squareGlyph;
+}
+
 function Buttons({
   remap,
   setRemapFor,
@@ -582,9 +646,6 @@ function Buttons({
 }): React.JSX.Element {
   const { t } = useI18n();
   const [editing, setEditing] = useState<number | null>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const artRef = useRef<HTMLImageElement>(null);
-  const [lines, setLines] = useState<Array<{ index: number; d: string; mapped: boolean }>>([]);
 
   const remapPill = (index: number) => {
     const entry = remap[index];
@@ -594,14 +655,21 @@ function Buttons({
       <button
         key={index}
         type="button"
-        data-pill-index={index}
         className={`remap-pill${mapped ? ' changed' : ''}${editing === index ? ' editing' : ''}`}
         onClick={() => setEditing(editing === index ? null : index)}
         title={`${t(buttonNameKey(index))} → ${t(buttonNameKey(target))}`}
       >
-        <span className="rp-src">{t(buttonNameKey(index))}</span>
+        <span className="rp-src">
+          <Glyph url={buttonGlyph(index)} size={18} title={t(buttonNameKey(index))} />
+        </span>
         <span className="rp-arrow">→</span>
-        <span className="rp-dst">{t(buttonNameKey(target))}</span>
+        <span className="rp-dst">
+          {index === 14 ? (
+            <MicOff size={18} />
+          ) : (
+            <Glyph url={buttonGlyph(target)} size={20} title={t(buttonNameKey(target))} />
+          )}
+        </span>
       </button>
     );
   };
@@ -610,97 +678,16 @@ function Buttons({
   const rightPills = [7, 5, 9, 3, 2, 0, 1, 11].map(remapPill); // R2 R1 Options Tri Circ Square Cross R3
   const bottomPills = [13, 12, 14].map(remapPill); // Touchpad PS Mute
 
-  // Anchor positions = actual button centers on the art (extracted from SVG)
-  const anchors = useMemo<Record<number, { x: number; y: number }>>(
-    () => ({
-      0: { x: 68.4, y: 48.1 }, // square
-      1: { x: 73.9, y: 53.1 }, // cross
-      2: { x: 79.1, y: 47.8 }, // circle
-      3: { x: 73.5, y: 40.2 }, // triangle
-      4: { x: 25.2, y: 28.9 }, // l1
-      5: { x: 70.2, y: 29.0 }, // r1
-      6: { x: 25.8, y: 23.5 }, // l2
-      7: { x: 69.8, y: 24.1 }, // r2
-      8: { x: 32.1, y: 38.1 }, // create
-      9: { x: 67.8, y: 38.0 }, // options
-      10: { x: 38.2, y: 60.4 }, // l3
-      11: { x: 61.9, y: 60.4 }, // r3
-      12: { x: 50.0, y: 59.0 }, // ps
-      13: { x: 50.0, y: 49.0 }, // touchpad
-      14: { x: 50.3, y: 63.0 }, // mute
-      15: { x: 26.5, y: 42.6 }, // dpad-up
-      16: { x: 22.0, y: 48.0 }, // dpad-left
-      17: { x: 26.5, y: 51.9 }, // dpad-down
-      18: { x: 31.5, y: 47.5 } // dpad-right
-    }),
-    []
-  );
-
-  useLayoutEffect(() => {
-    const wrap = wrapRef.current;
-    const art = artRef.current;
-    if (!wrap || !art) {
-      return;
-    }
-    const compute = (): void => {
-      const wrapRect = wrap.getBoundingClientRect();
-      const artRect = art.getBoundingClientRect();
-      const next: Array<{ index: number; d: string; mapped: boolean }> = [];
-      for (let index = 0; index < 19; index++) {
-        const pill = wrap.querySelector<HTMLElement>(`[data-pill-index="${index}"]`);
-        if (!pill) {
-          continue;
-        }
-        const pr = pill.getBoundingClientRect();
-        const anchor = anchors[index];
-        const ax = artRect.left - wrapRect.left + (anchor.x / 100) * artRect.width;
-        const ay = artRect.top - wrapRect.top + (anchor.y / 100) * artRect.height;
-        const entry = remap[index];
-        const mapped = entry ? entry.value !== index : false;
-
-        // Pill -> art edge (horizontal) -> anchor (angled), mirrored left/right.
-        let d = '';
-        if (pr.left < artRect.left) {
-          const sx = pr.right - wrapRect.left;
-          const sy = pr.top - wrapRect.top + pr.height / 2;
-          const x1 = artRect.left - wrapRect.left;
-          d = `M ${sx} ${sy} H ${x1} L ${ax} ${ay}`;
-        } else if (pr.left > artRect.right) {
-          const sx = pr.left - wrapRect.left;
-          const sy = pr.top - wrapRect.top + pr.height / 2;
-          const x1 = artRect.right - wrapRect.left;
-          d = `M ${sx} ${sy} H ${x1} L ${ax} ${ay}`;
-        } else {
-          // bottom row: straight angled line up from pill top center
-          const sx = pr.left - wrapRect.left + pr.width / 2;
-          const sy = pr.top - wrapRect.top;
-          d = `M ${sx} ${sy} L ${ax} ${ay}`;
-        }
-        next.push({ index, d, mapped });
-      }
-      setLines(next);
-    };
-    compute();
-    const onResize = (): void => compute();
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, [remap, anchors]);
-
   return (
     <div className="feature-card-grid single">
       <Card title={t('buttons.title')} subtitle={t('buttons.intro')}>
-        <div className="remap-wrap" ref={wrapRef}>
+        <div className="remap-wrap">
           <div className="remap-grid">
             <div className="remap-col">{leftPills}</div>
-            <img ref={artRef} className="remap-art" src={remapLayoutArt} alt="" />
+            <img className="remap-art" src={remapLayoutArt} alt="" />
             <div className="remap-col">{rightPills}</div>
           </div>
           <div className="remap-bottom">{bottomPills}</div>
-          <svg className="remap-callout-layer" aria-hidden="true">
-            {lines.map((line) => (
-              <path key={line.index} d={line.d} className={line.mapped ? 'active' : undefined} />
-            ))}
-          </svg>
         </div>
         {editing !== null ? (
           <TargetPicker
@@ -747,8 +734,13 @@ function TargetPicker({
             type="button"
             className={`target-chip${targetIndex === current ? ' active' : ''}`}
             onClick={() => onPick(targetIndex)}
+            title={t(buttonNameKey(targetIndex))}
           >
-            {t(buttonNameKey(targetIndex))}
+            {targetIndex === 14 ? (
+              <MicOff size={18} />
+            ) : (
+              <Glyph url={buttonGlyph(targetIndex)} size={18} />
+            )}
           </button>
         ))}
       </div>
