@@ -24,6 +24,7 @@ import {
   type RemapTable
 } from '../shared/protocol';
 import type { BridgeSnapshot, FlashFile, UiLanguage } from '../shared/types';
+import remapLayoutArt from '../../assets/controllers/dualsense-remapping-layout.svg';
 import { useI18n, type TranslationKey } from './i18n';
 import { useTheme } from './theme';
 
@@ -582,14 +583,38 @@ function Buttons({
   const { t } = useI18n();
   const [editing, setEditing] = useState<number | null>(null);
 
+  const remapPill = (index: number) => {
+    const entry = remap[index];
+    const target = entry ? entry.value : index;
+    const mapped = target !== index;
+    return (
+      <button
+        key={index}
+        type="button"
+        className={`remap-pill${mapped ? ' changed' : ''}${editing === index ? ' editing' : ''}`}
+        onClick={() => setEditing(editing === index ? null : index)}
+        title={`${t(buttonNameKey(index))} → ${t(buttonNameKey(target))}`}
+      >
+        <span className="rp-src">{t(buttonNameKey(index))}</span>
+        <span className="rp-arrow">→</span>
+        <span className="rp-dst">{t(buttonNameKey(target))}</span>
+      </button>
+    );
+  };
+
+  const leftPills = [6, 4, 8, 10].map(remapPill); // l2 l1 create l3
+  const rightPills = [7, 5, 9, 3, 0, 1, 2, 11].map(remapPill); // r2 r1 options tri sq cross circ r3
+  const bottomPills = [13, 12, 14].map(remapPill); // touchpad ps mute
+
   return (
     <div className="feature-card-grid single">
       <Card title={t('buttons.title')} subtitle={t('buttons.intro')}>
-        <ControllerDiagram
-          remap={remap}
-          editing={editing}
-          onEdit={setEditing}
-        />
+        <div className="remap-grid">
+          <div className="remap-col">{leftPills}</div>
+          <img className="remap-art" src={remapLayoutArt} alt="" />
+          <div className="remap-col">{rightPills}</div>
+        </div>
+        <div className="remap-bottom">{bottomPills}</div>
         {editing !== null ? (
           <TargetPicker
             source={editing}
@@ -607,76 +632,6 @@ function Buttons({
           </button>
         </div>
       </Card>
-    </div>
-  );
-}
-
-const BTN_LAYOUT: Array<{ id: RemapButtonId; index: number; x: number; y: number }> = [
-  { id: 'l2', index: 6, x: 13, y: 15 },
-  { id: 'l1', index: 4, x: 13, y: 28 },
-  { id: 'create', index: 8, x: 25, y: 47 },
-  { id: 'l3', index: 10, x: 33, y: 74 },
-  { id: 'r2', index: 7, x: 87, y: 15 },
-  { id: 'r1', index: 5, x: 87, y: 28 },
-  { id: 'options', index: 9, x: 75, y: 47 },
-  { id: 'r3', index: 11, x: 67, y: 74 },
-  { id: 'triangle', index: 3, x: 76, y: 54 },
-  { id: 'square', index: 0, x: 68, y: 62 },
-  { id: 'cross', index: 1, x: 76, y: 70 },
-  { id: 'circle', index: 2, x: 84, y: 62 },
-  { id: 'ps', index: 12, x: 50, y: 72 },
-  { id: 'touchpad', index: 13, x: 50, y: 42 },
-  { id: 'mute', index: 14, x: 50, y: 61 }
-];
-
-function ControllerDiagram({
-  remap,
-  editing,
-  onEdit
-}: {
-  remap: RemapTable;
-  editing: number | null;
-  onEdit: (index: number | null) => void;
-}): React.JSX.Element {
-  const { t } = useI18n();
-  return (
-    <div className="controller-diagram">
-      <svg viewBox="0 0 100 100" className="controller-face" aria-hidden="true">
-        <defs>
-          <linearGradient id="cd-body" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#2a3648" />
-            <stop offset="1" stopColor="#141c29" />
-          </linearGradient>
-        </defs>
-        <path
-          d="M20 20 h60 a16 16 0 0 1 16 16 v12 a24 24 0 0 1 -9 19 l-5 7 a13 13 0 0 1 -20 0 l-5 -7 a24 24 0 0 1 -9 -19 v-12 a16 16 0 0 1 16 -16 z"
-          fill="url(#cd-body)"
-          stroke="#0a0f16"
-          strokeWidth="2"
-        />
-        <rect x="36" y="30" width="28" height="18" rx="6" fill="#3a4a63" opacity="0.85" />
-        <circle cx="33" cy="63" r="9" fill="none" stroke="#3a4a63" strokeWidth="2.5" />
-        <circle cx="67" cy="63" r="9" fill="none" stroke="#3a4a63" strokeWidth="2.5" />
-        <circle cx="33" cy="63" r="3" fill="#5b7396" />
-        <circle cx="67" cy="63" r="3" fill="#5b7396" />
-      </svg>
-      {BTN_LAYOUT.map(({ id, index, x, y }) => {
-        const entry = remap[index];
-        const target = entry ? entry.value : index;
-        const mapped = target !== index;
-        return (
-          <button
-            key={id}
-            type="button"
-            className={`btn-hotspot${mapped ? ' mapped' : ''}${editing === index ? ' editing' : ''}`}
-            style={{ left: `${x}%`, top: `${y}%` }}
-            onClick={() => onEdit(editing === index ? null : index)}
-            title={`${t(buttonNameKey(index))} → ${t(buttonNameKey(target))}`}
-          >
-            {mapped ? t(buttonNameKey(target)) : t(buttonNameKey(index))}
-          </button>
-        );
-      })}
     </div>
   );
 }
