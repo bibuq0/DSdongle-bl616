@@ -660,14 +660,14 @@ function Buttons({
         title={`${t(buttonNameKey(index))} → ${t(buttonNameKey(target))}`}
       >
         <span className="rp-src">
-          <Glyph url={buttonGlyph(index)} size={18} title={t(buttonNameKey(index))} />
+          <Glyph url={buttonGlyph(index)} size={22} title={t(buttonNameKey(index))} />
         </span>
         <span className="rp-arrow">→</span>
         <span className="rp-dst">
           {index === 14 ? (
-            <MicOff size={18} />
+            <MicOff size={22} />
           ) : (
-            <Glyph url={buttonGlyph(target)} size={20} title={t(buttonNameKey(target))} />
+            <Glyph url={buttonGlyph(target)} size={24} title={t(buttonNameKey(target))} />
           )}
         </span>
       </button>
@@ -737,9 +737,9 @@ function TargetPicker({
             title={t(buttonNameKey(targetIndex))}
           >
             {targetIndex === 14 ? (
-              <MicOff size={18} />
+              <MicOff size={20} />
             ) : (
-              <Glyph url={buttonGlyph(targetIndex)} size={18} />
+              <Glyph url={buttonGlyph(targetIndex)} size={20} />
             )}
           </button>
         ))}

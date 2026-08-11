@@ -634,9 +634,8 @@ input[type='color'] {
 
 .remap-pill {
   position: relative;
-  z-index: 2;
-  min-height: 34px;
-  padding: 0 10px;
+  min-height: 44px;
+  padding: 0 12px;
   border: 1px solid var(--surface-border);
   border-radius: 999px;
   background: var(--surface-control);
@@ -644,25 +643,34 @@ input[type='color'] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 9px;
   font-size: 12px;
   cursor: pointer;
   transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease;
 }
 
+.remap-pill .rp-src,
+.remap-pill .rp-dst {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
 .remap-pill .rp-src {
   color: var(--text-dim);
-  font-weight: 600;
 }
 
 .remap-pill .rp-arrow {
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
 }
 
 .remap-pill .rp-dst {
   color: var(--text-primary);
-  font-weight: 700;
 }
 
 .remap-pill:hover,
@@ -708,7 +716,7 @@ html[data-theme='light'] .remap-pill.changed .rp-dst {
 }
 
 .target-chip {
-  min-height: 30px;
+  min-height: 34px;
   padding: 0 6px;
   border: 1px solid var(--surface-border);
   border-radius: var(--control-radius);
@@ -717,6 +725,15 @@ html[data-theme='light'] .remap-pill.changed .rp-dst {
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.target-chip .glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .target-chip:hover {
