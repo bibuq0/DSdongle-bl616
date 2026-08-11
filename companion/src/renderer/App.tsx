@@ -584,7 +584,7 @@ function Buttons({
   const [editing, setEditing] = useState<number | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const artRef = useRef<HTMLImageElement>(null);
-  const [lines, setLines] = useState<Array<{ index: number; points: string; mapped: boolean }>>([]);
+  const [lines, setLines] = useState<Array<{ index: number; d: string; mapped: boolean }>>([]);
 
   const remapPill = (index: number) => {
     const entry = remap[index];
@@ -645,7 +645,7 @@ function Buttons({
     const compute = (): void => {
       const wrapRect = wrap.getBoundingClientRect();
       const artRect = art.getBoundingClientRect();
-      const next: Array<{ index: number; points: string; mapped: boolean }> = [];
+      const next: Array<{ index: number; d: string; mapped: boolean }> = [];
       for (let index = 0; index < 19; index++) {
         const pill = wrap.querySelector<HTMLElement>(`[data-pill-index="${index}"]`);
         if (!pill) {
@@ -657,21 +657,29 @@ function Buttons({
         const ay = artRect.top - wrapRect.top + (anchor.y / 100) * artRect.height;
         const entry = remap[index];
         const mapped = entry ? entry.value !== index : false;
-        let points = '';
+
+        // Independent smooth bezier leader — no shared path segments.
+        let d = '';
         if (pr.left < artRect.left) {
-          // left column
+          // left column: start at pill right edge, curve right into anchor
+          const sx = pr.right - wrapRect.left;
           const sy = pr.top - wrapRect.top + pr.height / 2;
-          points = `${pr.left - wrapRect.left},${sy} ${artRect.left - wrapRect.left},${sy} ${artRect.left - wrapRect.left},${ay} ${ax},${ay}`;
+          const mx = (sx + ax) / 2;
+          d = `M ${sx} ${sy} C ${mx} ${sy}, ${mx} ${ay}, ${ax} ${ay}`;
         } else if (pr.left > artRect.right) {
-          // right column
+          // right column: start at pill left edge, curve left into anchor
+          const sx = pr.left - wrapRect.left;
           const sy = pr.top - wrapRect.top + pr.height / 2;
-          points = `${pr.right - wrapRect.left},${sy} ${artRect.right - wrapRect.left},${sy} ${artRect.right - wrapRect.left},${ay} ${ax},${ay}`;
+          const mx = (sx + ax) / 2;
+          d = `M ${sx} ${sy} C ${mx} ${sy}, ${mx} ${ay}, ${ax} ${ay}`;
         } else {
-          // bottom row
+          // bottom row: start at pill top center, curve up into anchor
           const sx = pr.left - wrapRect.left + pr.width / 2;
-          points = `${sx},${pr.top - wrapRect.top} ${sx},${artRect.bottom - wrapRect.top} ${ax},${artRect.bottom - wrapRect.top} ${ax},${ay}`;
+          const sy = pr.top - wrapRect.top;
+          const my = (sy + ay) / 2;
+          d = `M ${sx} ${sy} C ${sx} ${my}, ${ax} ${my}, ${ax} ${ay}`;
         }
-        next.push({ index, points, mapped });
+        next.push({ index, d, mapped });
       }
       setLines(next);
     };
@@ -693,11 +701,7 @@ function Buttons({
           <div className="remap-bottom">{bottomPills}</div>
           <svg className="remap-callout-layer" aria-hidden="true">
             {lines.map((line) => (
-              <polyline
-                key={line.index}
-                points={line.points}
-                className={line.mapped ? 'active' : undefined}
-              />
+              <path key={line.index} d={line.d} className={line.mapped ? 'active' : undefined} />
             ))}
           </svg>
         </div>
