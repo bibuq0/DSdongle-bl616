@@ -586,7 +586,108 @@ input[type='color'] {
   color: var(--danger);
 }
 
-/* ---- remap table ---- */
+/* ---- controller diagram (button remapping) ---- */
+.controller-diagram {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  margin: 4px auto 18px;
+  aspect-ratio: 1 / 1;
+}
+
+.controller-face {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.btn-hotspot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  min-width: 34px;
+  height: 20px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--surface-border-strong);
+  border-radius: 10px;
+  background: var(--surface-control);
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+}
+
+.btn-hotspot:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.btn-hotspot.mapped {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+html[data-theme='light'] .btn-hotspot.mapped {
+  color: var(--accent);
+}
+
+.btn-hotspot.editing {
+  border-color: var(--success);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* ---- target picker ---- */
+.target-picker {
+  border: 1px solid var(--surface-border);
+  border-radius: var(--card-radius);
+  background: var(--surface-panel);
+  padding: 14px;
+  margin-bottom: 4px;
+}
+
+.target-picker-title {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+
+.target-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 6px;
+}
+
+.target-chip {
+  min-height: 30px;
+  padding: 0 6px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--control-radius);
+  background: var(--surface-control-soft);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.target-chip:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.target-chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+
 .remap-table {
   width: 100%;
   border-collapse: collapse;

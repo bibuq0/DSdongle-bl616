@@ -580,46 +580,139 @@ function Buttons({
   resetRemap: () => void;
 }): React.JSX.Element {
   const { t } = useI18n();
+  const [editing, setEditing] = useState<number | null>(null);
+
   return (
     <div className="feature-card-grid single">
       <Card title={t('buttons.title')} subtitle={t('buttons.intro')}>
-        <table className="remap-table">
-          <thead>
-            <tr>
-              <th>{t('buttons.button')}</th>
-              <th>{t('buttons.mappedTo')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {REMAP_BUTTON_IDS.map((buttonId: RemapButtonId, index) => {
-              const entry = remap[index];
-              const current = entry ? entry.value : index;
-              return (
-                <tr key={buttonId}>
-                  <td>{t(buttonNameKey(index))}</td>
-                  <td>
-                    <select
-                      value={current}
-                      onChange={(event) => setRemapFor(index, Number(event.target.value))}
-                    >
-                      {REMAP_BUTTON_IDS.map((target, targetIndex) => (
-                        <option key={target} value={targetIndex}>
-                          {t(buttonNameKey(targetIndex))}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        <div className="actions" style={{ marginTop: 12 }}>
+        <ControllerDiagram
+          remap={remap}
+          editing={editing}
+          onEdit={setEditing}
+        />
+        {editing !== null ? (
+          <TargetPicker
+            source={editing}
+            current={remap[editing]?.value ?? editing}
+            onPick={(target) => {
+              setRemapFor(editing, target);
+              setEditing(null);
+            }}
+            onCancel={() => setEditing(null)}
+          />
+        ) : null}
+        <div className="actions" style={{ marginTop: 14 }}>
           <button type="button" className="secondary-action" onClick={resetRemap}>
             {t('buttons.resetIdentity')}
           </button>
         </div>
       </Card>
+    </div>
+  );
+}
+
+const BTN_LAYOUT: Array<{ id: RemapButtonId; index: number; x: number; y: number }> = [
+  { id: 'l2', index: 6, x: 13, y: 15 },
+  { id: 'l1', index: 4, x: 13, y: 28 },
+  { id: 'create', index: 8, x: 25, y: 47 },
+  { id: 'l3', index: 10, x: 33, y: 74 },
+  { id: 'r2', index: 7, x: 87, y: 15 },
+  { id: 'r1', index: 5, x: 87, y: 28 },
+  { id: 'options', index: 9, x: 75, y: 47 },
+  { id: 'r3', index: 11, x: 67, y: 74 },
+  { id: 'triangle', index: 3, x: 76, y: 54 },
+  { id: 'square', index: 0, x: 68, y: 62 },
+  { id: 'cross', index: 1, x: 76, y: 70 },
+  { id: 'circle', index: 2, x: 84, y: 62 },
+  { id: 'ps', index: 12, x: 50, y: 72 },
+  { id: 'touchpad', index: 13, x: 50, y: 42 },
+  { id: 'mute', index: 14, x: 50, y: 61 }
+];
+
+function ControllerDiagram({
+  remap,
+  editing,
+  onEdit
+}: {
+  remap: RemapTable;
+  editing: number | null;
+  onEdit: (index: number | null) => void;
+}): React.JSX.Element {
+  const { t } = useI18n();
+  return (
+    <div className="controller-diagram">
+      <svg viewBox="0 0 100 100" className="controller-face" aria-hidden="true">
+        <defs>
+          <linearGradient id="cd-body" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#2a3648" />
+            <stop offset="1" stopColor="#141c29" />
+          </linearGradient>
+        </defs>
+        <path
+          d="M20 20 h60 a16 16 0 0 1 16 16 v12 a24 24 0 0 1 -9 19 l-5 7 a13 13 0 0 1 -20 0 l-5 -7 a24 24 0 0 1 -9 -19 v-12 a16 16 0 0 1 16 -16 z"
+          fill="url(#cd-body)"
+          stroke="#0a0f16"
+          strokeWidth="2"
+        />
+        <rect x="36" y="30" width="28" height="18" rx="6" fill="#3a4a63" opacity="0.85" />
+        <circle cx="33" cy="63" r="9" fill="none" stroke="#3a4a63" strokeWidth="2.5" />
+        <circle cx="67" cy="63" r="9" fill="none" stroke="#3a4a63" strokeWidth="2.5" />
+        <circle cx="33" cy="63" r="3" fill="#5b7396" />
+        <circle cx="67" cy="63" r="3" fill="#5b7396" />
+      </svg>
+      {BTN_LAYOUT.map(({ id, index, x, y }) => {
+        const entry = remap[index];
+        const target = entry ? entry.value : index;
+        const mapped = target !== index;
+        return (
+          <button
+            key={id}
+            type="button"
+            className={`btn-hotspot${mapped ? ' mapped' : ''}${editing === index ? ' editing' : ''}`}
+            style={{ left: `${x}%`, top: `${y}%` }}
+            onClick={() => onEdit(editing === index ? null : index)}
+            title={`${t(buttonNameKey(index))} → ${t(buttonNameKey(target))}`}
+          >
+            {mapped ? t(buttonNameKey(target)) : t(buttonNameKey(index))}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function TargetPicker({
+  source,
+  current,
+  onPick,
+  onCancel
+}: {
+  source: number;
+  current: number;
+  onPick: (target: number) => void;
+  onCancel: () => void;
+}): React.JSX.Element {
+  const { t } = useI18n();
+  return (
+    <div className="target-picker">
+      <div className="target-picker-title">
+        {t('buttons.button')}: {t(buttonNameKey(source))} → {t('buttons.mappedTo')}:
+      </div>
+      <div className="target-picker-grid">
+        {REMAP_BUTTON_IDS.map((_, targetIndex) => (
+          <button
+            key={targetIndex}
+            type="button"
+            className={`target-chip${targetIndex === current ? ' active' : ''}`}
+            onClick={() => onPick(targetIndex)}
+          >
+            {t(buttonNameKey(targetIndex))}
+          </button>
+        ))}
+      </div>
+      <button type="button" className="secondary-action" onClick={onCancel} style={{ marginTop: 10 }}>
+        {t('common.cancel')}
+      </button>
     </div>
   );
 }
