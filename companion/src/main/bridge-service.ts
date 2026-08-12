@@ -3,7 +3,7 @@ import {
   CONFIG_CMD,
   DEFAULT_REMAP_TABLE,
   REMAP_CMD,
-  REMAP_REPORT_LENGTH,
+  REMAP_GET_LENGTH,
   REPORT_ID,
   buildConfigSetReport,
   buildRemapSetReport,
@@ -290,7 +290,7 @@ export class BridgeService extends EventEmitter {
   /** Detect old (64B, 15-key) vs new (81B, 19-key) firmware 0xFB report. */
   private async probeRemapLength(device: HidCompanionTransport): Promise<void> {
     try {
-      const raw = await device.getFeatureReport(REPORT_ID.REMAP, REMAP_REPORT_LENGTH);
+      const raw = await device.getFeatureReport(REPORT_ID.REMAP, REMAP_GET_LENGTH);
       device.setRemapReportLength(raw.length > 64 ? 81 : 64);
     } catch {
       // keep the 81 default
@@ -372,7 +372,7 @@ export class BridgeService extends EventEmitter {
       return;
     }
     try {
-      const raw = await this.device.getFeatureReport(REPORT_ID.REMAP, REMAP_REPORT_LENGTH);
+      const raw = await this.device.getFeatureReport(REPORT_ID.REMAP, REMAP_GET_LENGTH);
       this.lastRemap = parseRemapReport(raw);
       this.syncRemapToSnapshot();
     } catch {

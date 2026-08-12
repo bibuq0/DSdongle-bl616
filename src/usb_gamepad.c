@@ -1111,11 +1111,15 @@ void usbd_hid_get_report(uint8_t busid, uint8_t intf, uint8_t report_id,
             *data = feature_resp_buf;
             *len  = 5;
         } else if (report_id == 0xFB) {
+            /* Report length must match the HID descriptor Report Count
+             * (0x50 = 80 data bytes) + report id, otherwise Windows
+             * fails the GET_REPORT with 'could not get feature report'. */
+            memset(feature_resp_buf, 0, 1 + 0x50);
             feature_resp_buf[0] = 0xFB;
             memcpy(feature_resp_buf + 1, remap_get_table(),
                    REMAP_BTN_COUNT * sizeof(remap_entry_t));
             *data = feature_resp_buf;
-            *len  = 1 + REMAP_BTN_COUNT * (int)sizeof(remap_entry_t);
+            *len  = 1 + 0x50;
             LOG_INF("[USB] GET_REPORT(0xFB) → remap table %d bytes\n", *len);
         } else {
             *len = 0;

@@ -25,7 +25,9 @@ export const REMAP_ENTRY_SIZE = 4;
 export const REMAP_BUTTON_COUNT = 19;
 export const REMAP_TABLE_SIZE = REMAP_ENTRY_SIZE * REMAP_BUTTON_COUNT;
 /** Full 0xFB report: report id + sub-command + table (send) / report id + table (get). */
-export const REMAP_REPORT_LENGTH = 80;
+export const REMAP_REPORT_LENGTH = 81;
+/** GET_REPORT buffer request length for 0xFB (must be >= report length). */
+export const REMAP_GET_LENGTH = 96;
 
 export const REPORT_ID = {
   CONFIG_SET: 0xf6,
