@@ -264,6 +264,7 @@ export class BridgeService extends EventEmitter {
       if (this.device === device) {
         this.device = null;
         this.teardown();
+        this.publish();
         this.scheduleConnect(CONNECT_RETRY_MS);
       }
     });
