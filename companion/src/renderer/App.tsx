@@ -281,7 +281,6 @@ export default function App(): React.JSX.Element {
       <WindowBar />
       <div className="app">
         <aside className="sidebar">
-          <div className="sidebar-section-label">Controller</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {PAGES.map((entry) => {
               const Icon = entry.icon;
