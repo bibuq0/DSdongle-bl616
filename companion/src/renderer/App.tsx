@@ -870,6 +870,24 @@ function FirmwareFlash(): React.JSX.Element {
     }
   };
 
+  const browse = async (
+    key: 'boot2' | 'partition' | 'firmware',
+    current: string,
+    title: string
+  ): Promise<void> => {
+    const picked = await window.bridge.pickFile({
+      title,
+      defaultPath: current || undefined,
+      filters: [{ name: 'Firmware files', extensions: ['bin'] }]
+    });
+    if (!picked) {
+      return;
+    }
+    if (key === 'boot2') setBoot2Path(picked);
+    else if (key === 'partition') setPartitionPath(picked);
+    else setFirmwarePath(picked);
+  };
+
   const doFlash = async (): Promise<void> => {
     if (!port) {
       setLog(t('flash.selectPortFirst'));
@@ -928,6 +946,9 @@ function FirmwareFlash(): React.JSX.Element {
             value={boot2Path}
             onChange={(event) => setBoot2Path(event.target.value)}
           />
+          <button type="button" className="secondary-action" style={{ minHeight: 36, padding: '0 12px' }} onClick={() => browse('boot2', boot2Path, t('flash.boot2'))}>
+            {t('flash.browse')}
+          </button>
         </Row>
         <Row label={t('flash.partition')} hint={t('flash.partitionHint')}>
           <input
@@ -936,6 +957,9 @@ function FirmwareFlash(): React.JSX.Element {
             value={partitionPath}
             onChange={(event) => setPartitionPath(event.target.value)}
           />
+          <button type="button" className="secondary-action" style={{ minHeight: 36, padding: '0 12px' }} onClick={() => browse('partition', partitionPath, t('flash.partition'))}>
+            {t('flash.browse')}
+          </button>
         </Row>
         <Row label={t('flash.firmware')} hint={t('flash.firmwareHint')}>
           <input
@@ -944,6 +968,9 @@ function FirmwareFlash(): React.JSX.Element {
             value={firmwarePath}
             onChange={(event) => setFirmwarePath(event.target.value)}
           />
+          <button type="button" className="secondary-action" style={{ minHeight: 36, padding: '0 12px' }} onClick={() => browse('firmware', firmwarePath, t('flash.firmware'))}>
+            {t('flash.browse')}
+          </button>
         </Row>
         <div className="actions" style={{ marginTop: 14 }}>
           <button

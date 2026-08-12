@@ -35,6 +35,11 @@ export interface BridgeApi {
   flash(port: string, files: FlashFile[], firmwarePath: string): Promise<FlashResult>;
   minimize(): void;
   closeWindow(): void;
+  pickFile(options?: {
+    title?: string;
+    defaultPath?: string;
+    filters?: Array<{ name: string; extensions: string[] }>;
+  }): Promise<string | null>;
   onSnapshot(callback: (snapshot: BridgeSnapshot) => void): () => void;
 }
 
@@ -59,6 +64,7 @@ const api: BridgeApi = {
     ipcRenderer.invoke('flash:flash', port, files, firmwarePath),
   minimize: () => ipcRenderer.send('window:minimize'),
   closeWindow: () => ipcRenderer.send('window:close'),
+  pickFile: (options) => ipcRenderer.invoke('dialog:pickFile', options),
   onSnapshot: (callback) => {
     const listener = (_event: IpcRendererEvent, snapshot: BridgeSnapshot): void => {
       callback(snapshot);

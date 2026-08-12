@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron';
 import path from 'node:path';
 import type { DualsenseConfig, RemapTable } from '../shared/protocol';
 import type {
@@ -115,6 +115,29 @@ function registerIpc(service: BridgeService, settings: SettingsStore): void {
 
   ipcMain.on('window:minimize', () => mainWindow?.minimize());
   ipcMain.on('window:close', () => mainWindow?.close());
+
+  ipcMain.handle(
+    'dialog:pickFile',
+    async (
+      _event: IpcMainInvokeEvent,
+      options: {
+        title?: string;
+        defaultPath?: string;
+        filters?: Array<{ name: string; extensions: string[] }>;
+      }
+    ) => {
+      const result = await dialog.showOpenDialog({
+        title: options?.title ?? 'Select file',
+        defaultPath: options?.defaultPath,
+        filters: options?.filters ?? [{ name: 'All files', extensions: ['*'] }],
+        properties: ['openFile']
+      });
+      if (result.canceled || result.filePaths.length === 0) {
+        return null;
+      }
+      return result.filePaths[0];
+    }
+  );
 
   service.on('snapshot', sendSnapshot);
 }
