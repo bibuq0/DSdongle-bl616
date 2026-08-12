@@ -320,7 +320,7 @@ export default function App(): React.JSX.Element {
 
             {snapshot?.lastError ? <div className="error">{snapshot.lastError}</div> : null}
 
-            {!connected ? (
+            {!connected && page !== 'system' ? (
               <div className="empty-card">
                 <p style={{ margin: 0 }}>{t('status.dongleNotFound')}</p>
                 <div className="actions" style={{ marginTop: 12 }}>
@@ -331,13 +331,35 @@ export default function App(): React.JSX.Element {
               </div>
             ) : null}
 
-            {connected && !config ? (
+            {connected && !config && page !== 'system' ? (
               <div className="empty-card">
                 <p style={{ margin: 0 }}>{t('status.readingConfig')}</p>
               </div>
             ) : null}
 
-            {connected && config ? (
+            {page === 'system' ? (
+              <>
+                {connected && config ? (
+                  <>
+                    <System config={config} apply={apply} />
+                    <div className="actions">
+                      <button type="button" className="primary-action" disabled={busy} onClick={save}>
+                        {saving ? t('common.saving') : t('common.saveToDongle')}
+                      </button>
+                      <button type="button" className="danger-action" disabled={busy} onClick={reset}>
+                        {t('common.restoreDefaults')}
+                      </button>
+                      {snapshot?.lastSavedAt ? (
+                        <span className="saved-note">
+                          {t('common.savedAt')} {new Date(snapshot.lastSavedAt).toLocaleTimeString()}
+                        </span>
+                      ) : null}
+                    </div>
+                  </>
+                ) : null}
+                <FirmwareFlash />
+              </>
+            ) : connected && config ? (
               <>
                 {page === 'overview' ? (
                   <Overview snapshot={snapshot!} />
@@ -351,12 +373,7 @@ export default function App(): React.JSX.Element {
                   <Lighting config={config} apply={apply} />
                 ) : page === 'buttons' ? (
                   <Buttons remap={remap} setRemapFor={setRemapFor} resetRemap={resetRemap} />
-                ) : (
-                  <>
-                    <System config={config} apply={apply} />
-                    <FirmwareFlash />
-                  </>
-                )}
+                ) : null}
 
                 {page !== 'overview' ? (
                   <div className="actions">
