@@ -16,6 +16,7 @@ bouffalo_sdk_ds5/
 companion/node_modules/
 companion/dist/
 companion/artifacts/
+companion/resources/
 companion/native/AudioHelper/bin/
 companion/native/AudioHelper/obj/
 companion/firmware/

@@ -9,10 +9,11 @@
   "scripts": {
     "dev": "npm run build && electron .",
     "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.json --noEmit",
+    "prepack": "node scripts/prepack.mjs",
     "build:app": "tsc -p tsconfig.main.json && vite build",
     "build": "npm run build:app",
-    "package:win": "npm run build && node scripts/package-win.mjs",
-    "installer:win": "npm run build && electron-builder --win nsis --x64",
+    "package:win": "npm run prepack && npm run build && electron-builder --win dir --x64",
+    "installer:win": "npm run prepack && npm run build && electron-builder --win nsis --x64",
     "test": "npm run test:companion",
     "test:companion": "vitest run src",
     "visual:smoke": "npm run build && node scripts/visual-smoke.mjs",
@@ -38,6 +39,22 @@
     "asar": true,
     "asarUnpack": [
       "node_modules/node-hid/prebuilds/**/*.node"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/flash-cube",
+        "to": "flash-cube",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "resources/firmware",
+        "to": "firmware",
+        "filter": [
+          "**/*"
+        ]
+      }
     ],
     "npmRebuild": false,
     "win": {
@@ -67,6 +84,7 @@
     "node-hid": "^3.2.0"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@types/node": "^25.0.3",
     "@types/node-hid": "^1.3.4",
     "@types/react": "^19.2.7",

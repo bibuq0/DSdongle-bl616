@@ -23,6 +23,10 @@ function defaultSdkBase(): string {
 
 export function findFlashCommand(): string | null {
   const candidates = [
+    // Packaged with the app (electron-builder extraResources).
+    process.resourcesPath
+      ? path.join(process.resourcesPath, 'flash-cube', 'BLFlashCommand.exe')
+      : '',
     process.env.BL_SDK_BASE
       ? path.join(process.env.BL_SDK_BASE, 'tools', 'bflb_tools', 'bouffalo_flash_cube', 'BLFlashCommand.exe')
       : '',
@@ -37,11 +41,11 @@ export function findFlashCommand(): string | null {
 }
 
 export function defaultFlashFiles(binDir?: string): FlashFile[] {
-  const dir = binDir ?? '';
+  const dir = binDir ?? (process.resourcesPath ? path.join(process.resourcesPath, 'firmware') : '');
   return [
-    { address: 0x000000, path: path.join(dir, 'boot2_*.bin') },
+    { address: 0x000000, path: path.join(dir, 'boot2_bl616_isp_release_v8.1.8.bin') },
     { address: 0x00e000, path: path.join(dir, 'partition.bin') },
-    { address: 0x010000, path: path.join(dir, 'ds5dongle-*.bin') }
+    { address: 0x010000, path: path.join(dir, 'ds5dongle-lctech616.bin') }
   ];
 }
 
