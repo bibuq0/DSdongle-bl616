@@ -358,19 +358,21 @@ export default function App(): React.JSX.Element {
                   </>
                 )}
 
-                <div className="actions">
-                  <button type="button" className="primary-action" disabled={busy} onClick={save}>
-                    {saving ? t('common.saving') : t('common.saveToDongle')}
-                  </button>
-                  <button type="button" className="danger-action" disabled={busy} onClick={reset}>
-                    {t('common.restoreDefaults')}
-                  </button>
-                  {snapshot?.lastSavedAt ? (
-                    <span className="saved-note">
-                      {t('common.savedAt')} {new Date(snapshot.lastSavedAt).toLocaleTimeString()}
-                    </span>
-                  ) : null}
-                </div>
+                {page !== 'overview' ? (
+                  <div className="actions">
+                    <button type="button" className="primary-action" disabled={busy} onClick={save}>
+                      {saving ? t('common.saving') : t('common.saveToDongle')}
+                    </button>
+                    <button type="button" className="danger-action" disabled={busy} onClick={reset}>
+                      {t('common.restoreDefaults')}
+                    </button>
+                    {snapshot?.lastSavedAt ? (
+                      <span className="saved-note">
+                        {t('common.savedAt')} {new Date(snapshot.lastSavedAt).toLocaleTimeString()}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
               </>
             ) : null}
           </div>
