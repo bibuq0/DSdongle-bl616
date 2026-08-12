@@ -195,7 +195,8 @@ export class BridgeService extends EventEmitter {
     this.publish();
     try {
       await this.device.sendFeatureReport(buildRemapSetReport(REMAP_CMD.SET, table));
-      this.lastRemap = table;
+      this.lastRemap = table.map((entry) => ({ ...entry }));
+      this.syncRemapToSnapshot();
       this.lastError = null;
     } catch (error) {
       this.lastError = error instanceof Error ? error.message : String(error);
@@ -215,6 +216,7 @@ export class BridgeService extends EventEmitter {
     try {
       await this.device.sendFeatureReport(buildRemapSetReport(REMAP_CMD.RESET));
       this.lastRemap = [...DEFAULT_REMAP_TABLE];
+      this.syncRemapToSnapshot();
       this.lastError = null;
     } catch (error) {
       this.lastError = error instanceof Error ? error.message : String(error);
@@ -224,6 +226,13 @@ export class BridgeService extends EventEmitter {
       this.publish();
     }
     return this.getSnapshot();
+  }
+
+  /** Keep snapshot.settings.remap in sync after a remap write. */
+  private syncRemapToSnapshot(): void {
+    if (this.snapshot.config) {
+      this.snapshot.settings = this.buildSettings(this.snapshot.config);
+    }
   }
 
   // ---- internals ----
@@ -365,6 +374,7 @@ export class BridgeService extends EventEmitter {
     try {
       const raw = await this.device.getFeatureReport(REPORT_ID.REMAP, REMAP_REPORT_LENGTH);
       this.lastRemap = parseRemapReport(raw);
+      this.syncRemapToSnapshot();
     } catch {
       // ignored
     }
