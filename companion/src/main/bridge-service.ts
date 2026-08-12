@@ -268,10 +268,22 @@ export class BridgeService extends EventEmitter {
     });
     this.busy = false;
     this.lastError = null;
-    void this.refreshAll().finally(() => {
-      this.publish();
-      this.schedulePoll();
+    void this.probeRemapLength(device).finally(() => {
+      void this.refreshAll().finally(() => {
+        this.publish();
+        this.schedulePoll();
+      });
     });
+  }
+
+  /** Detect old (64B, 15-key) vs new (81B, 19-key) firmware 0xFB report. */
+  private async probeRemapLength(device: HidCompanionTransport): Promise<void> {
+    try {
+      const raw = await device.getFeatureReport(REPORT_ID.REMAP, REMAP_REPORT_LENGTH);
+      device.setRemapReportLength(raw.length > 64 ? 81 : 64);
+    } catch {
+      // keep the 81 default
+    }
   }
 
   private schedulePoll(): void {

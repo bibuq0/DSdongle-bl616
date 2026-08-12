@@ -47,6 +47,8 @@ export function findDongleDevice(): HID.Device | null {
 
 export class HidCompanionTransport extends EventEmitter {
   private closed = false;
+  private remapReportLength = 81;
+  private readonly sendRetries = 3;
 
   private constructor(
     private readonly device: HID.HIDAsync,
@@ -59,6 +61,15 @@ export class HidCompanionTransport extends EventEmitter {
       this.closed = true;
       this.emit('close');
     });
+  }
+
+  /**
+   * Report length the attached firmware actually supports for the 0xFB
+   * remap report. Old firmware: 64 (15 buttons), new: 81 (19 buttons).
+   * Probed once at connect time by the bridge service.
+   */
+  setRemapReportLength(length: number): void {
+    this.remapReportLength = length;
   }
 
   static async open(options: OpenOptions = {}): Promise<HidCompanionTransport> {
@@ -113,16 +124,35 @@ export class HidCompanionTransport extends EventEmitter {
     if (this.closed) {
       throw new Error('HID transport is closed');
     }
-    const data = normalizeReport(report);
-    await this.device.sendFeatureReport(data);
+    const data = this.normalizeReport(report);
+    await this.sendWithRetry(data);
   }
 
   async write(report: ArrayLike<number>): Promise<void> {
     if (this.closed) {
       throw new Error('HID transport is closed');
     }
-    const data = normalizeReport(report);
-    await this.device.write(data);
+    const data = this.normalizeReport(report);
+    await this.sendWithRetry(data);
+  }
+
+  private async sendWithRetry(data: number[]): Promise<void> {
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt < this.sendRetries; attempt++) {
+      if (this.closed) {
+        throw new Error('HID transport is closed');
+      }
+      try {
+        await this.device.sendFeatureReport(data);
+        return;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (attempt < this.sendRetries - 1) {
+          await delay(60);
+        }
+      }
+    }
+    throw lastError ?? new Error('sendFeatureReport failed');
   }
 
   close(): void {
@@ -137,20 +167,20 @@ export class HidCompanionTransport extends EventEmitter {
     }
     this.emit('close');
   }
-}
 
-function normalizeReport(report: ArrayLike<number>): number[] {
-  if (report.length < 1 || report.length > MAX_TRANSPORT_REPORT_LENGTH) {
-    throw new Error(
-      `Expected 1-${MAX_TRANSPORT_REPORT_LENGTH} report bytes, received ${report.length}.`
-    );
+  private normalizeReport(report: ArrayLike<number>): number[] {
+    if (report.length < 1 || report.length > MAX_TRANSPORT_REPORT_LENGTH) {
+      throw new Error(
+        `Expected 1-${MAX_TRANSPORT_REPORT_LENGTH} report bytes, received ${report.length}.`
+      );
+    }
+    // 0xFB remap reports follow the firmware's supported length; others are 64.
+    const reportLength = (report[0] & 0xff) === REPORT_ID.REMAP ? this.remapReportLength : REPORT_LENGTH;
+    const data = new Array<number>(reportLength).fill(0);
+    const copy = Math.min(report.length, reportLength);
+    for (let i = 0; i < copy; i++) {
+      data[i] = report[i] & 0xff;
+    }
+    return data;
   }
-  // 0xFB remap reports are 80 data bytes + report id (81); others are 64.
-  const reportLength = (report[0] & 0xff) === REPORT_ID.REMAP ? 81 : REPORT_LENGTH;
-  const data = new Array<number>(reportLength).fill(0);
-  const copy = Math.min(report.length, reportLength);
-  for (let i = 0; i < copy; i++) {
-    data[i] = report[i] & 0xff;
-  }
-  return data;
 }
