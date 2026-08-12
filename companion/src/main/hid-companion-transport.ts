@@ -56,7 +56,15 @@ export class HidCompanionTransport extends EventEmitter {
   ) {
     super();
     device.on('data', (data: Buffer) => this.emit('data', data));
-    device.on('error', (error: Error) => this.emit('error', error));
+    device.on('error', (error: Error) => {
+      // The device errored (e.g. firmware reset unplugs/re-enumerates it).
+      // Never emit an unhandled 'error' — treat it as a close so the bridge
+      // tears down and reconnects.
+      if (!this.closed) {
+        this.closed = true;
+        this.emit('close');
+      }
+    });
     device.on('close', () => {
       this.closed = true;
       this.emit('close');
