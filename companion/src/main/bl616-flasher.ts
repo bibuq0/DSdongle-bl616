@@ -16,7 +16,9 @@ import type { FlashFile, FlashResult } from '../shared/types';
  */
 
 function defaultSdkBase(): string {
-  return path.resolve(__dirname, '..', '..', '..', '..', 'bouffalo_sdk');
+  // dist/main/main -> 5 levels up = project's parent dir (where the SDK
+  // fork lives as a sibling, e.g. bldev/bouffalo_sdk next to this repo).
+  return path.resolve(__dirname, '..', '..', '..', '..', '..', 'bouffalo_sdk');
 }
 
 export function findFlashCommand(): string | null {
