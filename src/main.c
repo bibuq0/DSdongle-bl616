@@ -39,7 +39,7 @@
 #define LED_TASK_PRIORITY     (configMAX_PRIORITIES - 4)
 #define BOOT_HOLD_TICKS      30   /* 30 x 100ms = 3 seconds */
 #define BOOT_CLICK_WINDOW    5    /* 500ms window between clicks */
-#define RECONNECT_TIMEOUT_MS 5000
+#define RECONNECT_TIMEOUT_MS 2000
 #define HANDSHAKE_TIMEOUT_US  (10ULL * 1000000ULL)
 #define CONNECTING_TIMEOUT_TICKS pdMS_TO_TICKS(8000)
 #define L2CAP_FALLBACK_TIMEOUT_TICKS pdMS_TO_TICKS(3000)
@@ -511,8 +511,8 @@ static void bt_task(void *arg)
 
     LOG_INF("[BT_TASK] try_reconnect...\n");
     if (bt_hid_host_try_reconnect() == 0) {
-        /* Active reconnect: paging the bonded controller. Wait for the
-         * ACL/L2CAP session to complete; the controller can also page us. */
+        /* Passive reconnect: page scan is enabled, wait for the
+         * controller to page us and create L2CAP channels. */
         LOG_INF("[MAIN] Waiting for controller to reconnect...\n");
         TickType_t start = xTaskGetTickCount();
         while (!ds5_connected &&
