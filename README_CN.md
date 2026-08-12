@@ -202,7 +202,7 @@ LCTech BL616 为单颗蓝色 LED（GPIO27），不同状态以闪烁节奏区分
 - 空闲超时：可配置 0–60 分钟自动断开（默认 30 分钟）
 - PS 快捷键：短按 → Win+G，长按 → Win+Tab
 - 轮询率可配置：250Hz / 500Hz / 实时档（~750Hz，跟随 BT 报告率）
-- 按键映射：可将手柄任意按键重映射为其他手柄按键（Feature Report 0xFB）
+- 按键映射：可将手柄任意按键重映射为其他手柄按键（Feature Report 0xFB），支持 **D-pad 四方向**（共 19 个可映射按键）
 - MuteLight：通过手柄静音键开关麦克风指示灯
 - USB 远程唤醒：6 态 FSM + Boot Keyboard + 挂起 5 秒后自动关机
 - USB 隐身模式：可配置为手柄连接前不枚举 USB 设备
@@ -215,6 +215,31 @@ LCTech BL616 为单颗蓝色 LED（GPIO27），不同状态以闪烁节奏区分
 - 多开发板支持：LCTech BL616（默认）、Ai-M61-32S-Kit、Sipeed M0S Dock —— 编译期板型选择
 - 构建期日志级别控制（`LOG_LEVEL` 0–3）
 - FreeRTOS 多任务架构（BT / USB / Audio / Mic）
+
+### Windows 伴生应用（DS5 Dongle）
+
+仓库 `companion/` 提供一个基于 Electron + React 的 **Windows 配置工具**，通过 HID Feature Report（0xF6–0xF9 / 0xFB）直接读写接收器配置，无需改固件：
+
+- **配置页面**：音频（扬声器/耳机音量、增益、缓冲、透传开关）、触觉增益、扳机电机限流、灯条颜色、按键映射、系统（手柄模式 / 轮询率 / 空闲超时 / USB 唤醒 / 隐身 / PS 快捷键）
+- **可视化按键映射**：原版 DualSense 手柄图 + 按键 glyph 图标，映射实时生效并持久化
+- **固件刷写**：内置 BLFlashCommand + 默认固件（打包进安装包），无需 SDK 即可串口 ISP 刷写
+- **状态监测**：手柄连接状态实时显示（断连自动检测），电量 / RSSI / 固件版本
+- **多语言**：简体中文 / English 切换；**深色 / 浅色主题**
+
+**运行**（开发模式）：
+```bat
+cd companion
+npm install
+npm run dev
+```
+或双击项目根目录 `start-companion.bat`。
+
+**打包安装包**（Windows NSIS）：
+```bat
+cd companion
+npm run installer:win
+```
+产物：`companion\artifacts\installer\DS5-Dongle-Setup-<版本>.exe`（内置刷写工具 + 默认固件，安装后即可直接刷机）。
 
 ### 已知限制
 
@@ -275,7 +300,7 @@ src/
 ├── state_mgr.c/h       SetStateData 条件合并管理器
 ├── config.c/h          配置系统（bt_settings + 0xF6-0xF9）
 ├── dse.c/h             DualSense Edge Profile 管理
-├── remap.c/h           按键映射
+├── remap.c/h           按键映射（含 D-pad 四方向，共 19 键）
 ├── led_status.c/h      LED 状态指示（Ai-M61 RGB / M0S Dock 双红 / LCTech 单蓝）
 ├── board_config.h      板级抽象（LED 引脚/极性、USB 类型、板名）
 ├── debug_log.h         构建期日志级别宏（LOG_ERR/WRN/INF/DBG/ISR）
@@ -284,6 +309,7 @@ lib/
 ├── opus/               Opus 编解码库（定点模式，xiph/opus）
 ├── opus.cmake          Opus 源文件列表
 └── opus_config.h       Opus 构建配置
+companion/              Windows 伴生应用（Electron + React，见上文章节）
 firmware/               板级烧录配置 + 本地编译产物（二进制已 git 忽略）
 ```
 

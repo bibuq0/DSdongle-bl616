@@ -4,6 +4,30 @@ All notable changes to DS5Dongle BL618 firmware are documented here.
 
 ---
 
+## v3.16 — 2026-08-12
+
+### Added
+- **Windows 伴生应用（DS5 Dongle）**：Electron + React 配置工具，经 HID Feature Report（0xF6–0xF9 / 0xFB）读写配置
+  - 配置页：音频 / 触觉 / 扳机 / 灯光 / 按键映射 / 系统
+  - 可视化按键映射（原版手柄图 + glyph 图标）
+  - 固件刷写（内置 BLFlashCommand + 默认固件，打包进安装包）
+  - 手柄连接状态实时监测（断连自动检测）
+  - 中英文切换 + 深色/浅色主题
+- **D-pad 四方向按键映射**：remap 表 15 → 19 键（含 D-pad 上/左/下/右）
+- **安装包**：`DS5-Dongle-Setup-<ver>.exe`（NSIS，内置刷写工具 + 固件）
+- 固件 0xFB（按键映射）GET_REPORT 返回长度与描述符对齐修复
+
+### Fixed
+- 伴生应用：手柄关机后状态实时刷新（不再需要重启应用）
+- 伴生应用：按键映射改动后界面立即同步
+- 伴生应用：固件刷写卡在手柄断开时仍可用
+- 伴生应用：启动脚本（`start-companion.bat`）修复括号块导致的静默失败
+
+### Changed
+- 启动方式：新增 `start-companion.bat` 一键启动
+
+---
+
 ## v3.15 — 2026-08-06
 
 ### Added

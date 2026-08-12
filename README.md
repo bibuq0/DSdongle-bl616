@@ -204,7 +204,7 @@ LCTech BL616 has a single blue LED (GPIO27); states are distinguished by blink c
 - Idle timeout: configurable 0–60 min auto-disconnect (default 30 min)
 - PS shortcut: short press → Win+G, long press → Win+Tab
 - Configurable polling rate: 250Hz / 500Hz / real-time (~750Hz, follows the BT report rate)
-- Button remap: remap any controller button to another controller button (Feature Report 0xFB)
+- Button remap: remap any controller button to another controller button (Feature Report 0xFB), including **all four D-pad directions** (19 remappable inputs)
 - MuteLight: mic button LED control (toggle on/off via the controller mute button)
 - USB remote wakeup: 6-state FSM + Boot Keyboard + auto power-off after 5s suspend
 - USB stealth mode: hide the USB device until a controller connects (configurable)
@@ -217,6 +217,31 @@ LCTech BL616 has a single blue LED (GPIO27); states are distinguished by blink c
 - Multi-board support: LCTech BL616 (default), Ai-M61-32S-Kit, Sipeed M0S Dock — compile-time board selection
 - Build-time log level control (`LOG_LEVEL` 0–3)
 - FreeRTOS multi-task architecture (BT / USB / Audio / Mic)
+
+### Windows Companion App (DS5 Dongle)
+
+The `companion/` directory holds an Electron + React **Windows configuration tool**. It talks to the dongle over HID Feature Reports (0xF6–0xF9 / 0xFB) — no firmware changes required:
+
+- **Config pages**: audio (speaker/headset volume, gain, buffer, passthrough), haptics gain, trigger motor limit, lightbar color, button remapping, system (controller mode / polling rate / idle timeout / USB wake / stealth / PS shortcut)
+- **Visual remapping**: original DualSense art + button glyphs, changes apply and persist instantly
+- **Firmware flashing**: ships BLFlashCommand + default firmware inside the installer — flash over serial ISP without the SDK
+- **Live status**: controller connection state (auto-detect disconnect), battery / RSSI / firmware version
+- **Localization**: Simplified Chinese / English; dark / light themes
+
+Run (development):
+```bat
+cd companion
+npm install
+npm run dev
+```
+Or double-click `start-companion.bat` at the repo root.
+
+Package (Windows NSIS):
+```bat
+cd companion
+npm run installer:win
+```
+Output: `companion\artifacts\installer\DS5-Dongle-Setup-<version>.exe` (bundles the flash tool + default firmware).
 
 ### Known Limitations
 
@@ -277,7 +302,7 @@ src/
 ├── state_mgr.c/h       SetStateData conditional merge manager
 ├── config.c/h          Configuration system (bt_settings + 0xF6-0xF9)
 ├── dse.c/h             DualSense Edge profile management
-├── remap.c/h           Button remap
+├── remap.c/h           Button remap (incl. D-pad directions, 19 keys)
 ├── led_status.c/h      LED status indicator (RGB on Ai-M61 / dual-red on M0S Dock / single on LCTech)
 ├── board_config.h      Board abstraction (LED pins/polarity, USB type, board name)
 ├── debug_log.h         Build-time log level macros (LOG_ERR/WRN/INF/DBG/ISR)
@@ -286,6 +311,7 @@ lib/
 ├── opus/               Opus codec (fixed-point, xiph/opus)
 ├── opus.cmake          Opus source file list
 └── opus_config.h       Opus build configuration
+companion/              Windows companion app (Electron + React, see section above)
 firmware/               Board flash configs + local build output (binaries git-ignored)
 ```
 
