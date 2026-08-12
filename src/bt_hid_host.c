@@ -564,20 +564,20 @@ static void l2cap_intr_connected(struct bt_l2cap_chan *chan)
     bt_br_set_discoverable(false);
 
     /* Shorten the Link Supervision Timeout so the BL618 controller
-     * detects a dead link within ~2 s instead of the default ~20 s.
+     * detects a dead link within ~5 s instead of the default ~20 s.
      * HCI Write_Link_Supervision_Timeout: OGF 0x03, OCF 0x0037.
-     * Timeout unit = 0.625 ms; 2 s = 3200 slots = 0x0C80. */
+     * Timeout unit = 0.625 ms; 5 s = 8000 slots = 0x1F40. */
     if (hid_ctx.conn) {
         uint16_t handle = hid_ctx.conn->handle;
         struct net_buf *buf = bt_hci_cmd_create(
             BT_OP(BT_OGF_BASEBAND, 0x0037), 4);
         if (buf) {
             net_buf_add_le16(buf, handle);
-            net_buf_add_le16(buf, 0x0C80);
+            net_buf_add_le16(buf, 0x1F40);
             int err = bt_hci_cmd_send_sync(
                 BT_OP(BT_OGF_BASEBAND, 0x0037), buf, NULL);
             LOG_INF("[BT] Write Link Supervision Timeout: handle=0x%04x "
-                   "timeout=2s err=%d\n", handle, err);
+                   "timeout=5s err=%d\n", handle, err);
         }
     }
 
