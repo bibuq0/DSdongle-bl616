@@ -2022,12 +2022,12 @@ int bt_hid_host_try_reconnect(void)
     bt_addr_copy(&hid_ctx.target_addr, addr);
     hid_ctx.has_target = true;
 
-    /* DS5Dongle approach: don't actively page the controller.
-     * Stay connectable and let the controller reconnect to us.
-     * The controller will create ACL + L2CAP channels. */
-    LOG_INF("[BT] Bonded device [%d/%d] %s — waiting for controller to reconnect "
-           "(page scan enabled)\n", active_idx, bonded_count, addr_str);
-    return 0;
+    /* Active reconnect: page the bonded controller directly so a dongle
+     * reboot reconnects the controller without pressing PS. The controller
+     * can still page us (page scan stays enabled if the page fails). */
+    LOG_INF("[BT] Bonded device [%d/%d] %s — paging controller for reconnect\n",
+            active_idx, bonded_count, addr_str);
+    return bt_hid_host_connect(addr->val);
 }
 
 int bt_hid_host_switch_next(void)
