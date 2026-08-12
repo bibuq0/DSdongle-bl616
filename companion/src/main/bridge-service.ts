@@ -45,6 +45,7 @@ export class BridgeService extends EventEmitter {
   private lastRemap: RemapTable | null = null;
   private busy = false;
   private connecting = false;
+  private consecutivePollFailures = 0;
   private startedAt = Date.now();
   private lastError: string | null = null;
   private lastSavedAt: number | null = null;
@@ -304,9 +305,22 @@ export class BridgeService extends EventEmitter {
     try {
       const raw = await this.device.getFeatureReport(REPORT_ID.STATUS);
       this.snapshot.status = parseStatusReport(raw);
-      this.snapshot.uptimeSeconds = Math.floor((Date.now() - this.startedAt) / 1000);
+      this.consecutivePollFailures = 0;
     } catch {
-      // Transient read error; retry next tick.
+      // Device likely re-enumerated (e.g. after a firmware reset).
+      this.consecutivePollFailures++;
+      if (this.consecutivePollFailures >= 3) {
+        this.consecutivePollFailures = 0;
+        const stale = this.device;
+        this.device = null;
+        this.teardown();
+        if (stale) {
+          stale.close();
+        }
+        this.publish();
+        this.scheduleConnect(CONNECT_RETRY_MS);
+        return;
+      }
     }
     this.publish();
     this.schedulePoll();
