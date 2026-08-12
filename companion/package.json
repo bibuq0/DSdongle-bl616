@@ -28,6 +28,7 @@
     "files": [
       "dist/**/*",
       "package.json",
+      "assets/icons/ds5dongle.ico",
       "node_modules/node-hid/binding-options.js",
       "node_modules/node-hid/nodehid.js",
       "node_modules/node-hid/package.json",
@@ -57,8 +58,9 @@
       }
     ],
     "npmRebuild": false,
+    "afterPack": "scripts/electron-builder-after-pack.cjs",
     "win": {
-      "icon": "assets/icons/ds5dongle.ico",
+      "icon": "assets/icons/png/icon-4-v11-512.png",
       "signAndEditExecutable": false,
       "target": [
         {
@@ -93,6 +95,7 @@
     "electron": "^39.8.10",
     "electron-builder": "^26.8.1",
     "lucide-react": "^0.561.0",
+    "rcedit": "^5.0.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "typescript": "^5.9.3",
