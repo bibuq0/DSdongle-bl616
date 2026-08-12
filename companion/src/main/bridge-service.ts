@@ -309,7 +309,7 @@ export class BridgeService extends EventEmitter {
     } catch {
       // Device likely re-enumerated (e.g. after a firmware reset).
       this.consecutivePollFailures++;
-      if (this.consecutivePollFailures >= 3) {
+      if (this.consecutivePollFailures >= 2) {
         this.consecutivePollFailures = 0;
         const stale = this.device;
         this.device = null;

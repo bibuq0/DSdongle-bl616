@@ -2,7 +2,7 @@
  * BL616 HID transport for the DS5Dongle BL618 companion app.
  *
  * Talks to the dongle over plain HID Feature Reports (VID 054C, PID 0CE6 /
- * 0DF2) using node-hid — no WinUSB driver or companion firmware interface is
+ * 0DF2) using node-hid �?no WinUSB driver or companion firmware interface is
  * required. The interface mirrors the old `WinUsbCompanionTransport` so the
  * service layer only swaps the import.
  */
@@ -58,7 +58,7 @@ export class HidCompanionTransport extends EventEmitter {
     device.on('data', (data: Buffer) => this.emit('data', data));
     device.on('error', (error: Error) => {
       // The device errored (e.g. firmware reset unplugs/re-enumerates it).
-      // Never emit an unhandled 'error' — treat it as a close so the bridge
+      // Never emit an unhandled 'error' �?treat it as a close so the bridge
       // tears down and reconnects.
       if (!this.closed) {
         this.closed = true;
@@ -126,7 +126,7 @@ export class HidCompanionTransport extends EventEmitter {
     }
     const buffer = await this.withTimeout(
       this.device.getFeatureReport(reportId & 0xff, length),
-      2000,
+      1000,
       `getFeatureReport(0x${reportId.toString(16)}) timed out`
     );
     return Array.from(buffer);
@@ -157,7 +157,7 @@ export class HidCompanionTransport extends EventEmitter {
       try {
         await this.withTimeout(
           this.device.sendFeatureReport(data),
-          2000,
+          1000,
           'sendFeatureReport timed out'
         );
         return;
