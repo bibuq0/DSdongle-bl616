@@ -413,16 +413,6 @@ function Overview({ snapshot }: { snapshot: BridgeSnapshot }): React.JSX.Element
         <div className="k">{t('status.micStream')}</div>
         <div className="v">{status.micActive ? t('common.on') : t('common.off')}</div>
       </div>
-      <div className="metric">
-        <div className="k">{t('status.uptime')}</div>
-        <div className="v">{snapshot.uptimeSeconds}s</div>
-      </div>
-      {snapshot.devicePath ? (
-        <div className="metric">
-          <div className="k">{t('status.devicePath')}</div>
-          <div className="v muted">{snapshot.devicePath}</div>
-        </div>
-      ) : null}
     </div>
   );
 }
