@@ -124,7 +124,11 @@ export class HidCompanionTransport extends EventEmitter {
     if (this.closed) {
       throw new Error('HID transport is closed');
     }
-    const buffer = await this.device.getFeatureReport(reportId & 0xff, length);
+    const buffer = await this.withTimeout(
+      this.device.getFeatureReport(reportId & 0xff, length),
+      2000,
+      `getFeatureReport(0x${reportId.toString(16)}) timed out`
+    );
     return Array.from(buffer);
   }
 
@@ -151,7 +155,11 @@ export class HidCompanionTransport extends EventEmitter {
         throw new Error('HID transport is closed');
       }
       try {
-        await this.device.sendFeatureReport(data);
+        await this.withTimeout(
+          this.device.sendFeatureReport(data),
+          2000,
+          'sendFeatureReport timed out'
+        );
         return;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
@@ -161,6 +169,22 @@ export class HidCompanionTransport extends EventEmitter {
       }
     }
     throw lastError ?? new Error('sendFeatureReport failed');
+  }
+
+  private withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(message)), ms);
+      promise.then(
+        (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        (error) => {
+          clearTimeout(timer);
+          reject(error);
+        }
+      );
+    });
   }
 
   close(): void {
