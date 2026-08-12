@@ -391,9 +391,11 @@ function Overview({ snapshot }: { snapshot: BridgeSnapshot }): React.JSX.Element
       : status.batteryState === 0 && status.batteryPercent <= 20
         ? 'battery-warning'
         : '';
-  // Battery/RSSI are unknown while no controller is connected over BT.
+  // Battery/RSSI are unknown (0xFF / 1) while no controller is connected
+  // over BT. batteryState is NOT a reliable online signal (firmware resets
+  // it to 0 on disconnect), so only battery level + RSSI decide.
   const controllerOnline =
-    status.batteryPercent !== 255 || status.batteryState !== 0xff || status.rssiKnown;
+    status.batteryPercent !== 255 || status.rssiKnown;
   return (
     <div className="metric-grid">
       <div className="metric">
