@@ -25,7 +25,7 @@ function createWindow(): BrowserWindow {
     height: 700,
     minWidth: 900,
     minHeight: 600,
-    title: 'DS5 Dongle Config',
+    title: 'DS5 Dongle',
     frame: false,
     backgroundColor: '#050b13',
     show: false,

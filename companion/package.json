@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Windows companion app for the DS5Dongle BL618 (BL616) firmware.",
-  "productName": "DS5 Dongle Config",
+  "productName": "DS5 Dongle",
   "license": "AGPL-3.0-only",
   "main": "dist/main/main/main.js",
   "scripts": {
@@ -21,7 +21,7 @@
   },
   "build": {
     "appId": "top.ds5678.ds5dongleconfig",
-    "artifactName": "DS5-Dongle-Config-Setup-${version}.${ext}",
+    "artifactName": "DS5-Dongle-Setup-${version}.${ext}",
     "directories": {
       "output": "artifacts/installer"
     },
@@ -78,8 +78,8 @@
       "deleteAppDataOnUninstall": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "DS5 Dongle Config",
-      "uninstallDisplayName": "DS5 Dongle Config"
+      "shortcutName": "DS5 Dongle",
+      "uninstallDisplayName": "DS5 Dongle"
     }
   },
   "dependencies": {
