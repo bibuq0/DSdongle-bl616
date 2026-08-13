@@ -43,6 +43,10 @@
     ],
     "extraResources": [
       {
+        "from": "assets/icons/ds5dongle.ico",
+        "to": "icons/ds5dongle.ico"
+      },
+      {
         "from": "resources/flash-cube",
         "to": "flash-cube",
         "filter": [

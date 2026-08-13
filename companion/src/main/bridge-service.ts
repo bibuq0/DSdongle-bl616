@@ -46,6 +46,8 @@ export class BridgeService extends EventEmitter {
   private busy = false;
   private connecting = false;
   private consecutivePollFailures = 0;
+  private pendingConfigPatch: Partial<DualsenseConfig> | null = null;
+  private flushPromise: Promise<void> | null = null;
   private startedAt = Date.now();
   private lastError: string | null = null;
   private lastSavedAt: number | null = null;
@@ -120,37 +122,60 @@ export class BridgeService extends EventEmitter {
    * Apply a partial config change. The dongle's 0xF6 SET_REPORT overwrites
    * the whole config_body, so we merge the patch on top of the last read
    * config and push the full body.
+   *
+   * Rapid consecutive changes (e.g. dragging a slider) are coalesced: while
+   * a write is in flight the next patch is merged into a pending patch and
+   * flushed right after, so no user change is dropped.
    */
   async applyConfig(patch: Partial<DualsenseConfig>): Promise<BridgeSnapshot> {
-    if (!this.device || this.busy) {
+    if (!this.device) {
       this.lastError = 'Dongle not connected';
       this.publish();
       return this.getSnapshot();
     }
-    const base = this.lastConfig;
-    if (!base) {
-      this.lastError = 'Configuration not read yet';
-      this.publish();
-      return this.getSnapshot();
-    }
-    const merged: DualsenseConfig = { ...base, ...patch };
-    this.busy = true;
-    this.publish();
-    try {
-      await this.device.sendFeatureReport(buildConfigSetReport(CONFIG_CMD.SET, merged));
-      this.lastConfig = merged;
-      await this.refreshConfig();
-      this.lastError = null;
-    } catch (error) {
-      this.lastError = error instanceof Error ? error.message : String(error);
-    } finally {
-      this.busy = false;
-      this.publish();
+    this.pendingConfigPatch = { ...this.pendingConfigPatch, ...patch };
+    if (!this.busy && !this.flushPromise) {
+      this.flushPromise = this.flushPendingConfig();
     }
     return this.getSnapshot();
   }
 
+  private async flushPendingConfig(): Promise<void> {
+    try {
+      while (this.pendingConfigPatch && this.device) {
+        const patch = this.pendingConfigPatch;
+        this.pendingConfigPatch = null;
+        this.busy = true;
+        this.publish();
+        try {
+          const base = this.lastConfig;
+          if (!base) {
+            this.lastError = 'Configuration not read yet';
+            break;
+          }
+          const merged: DualsenseConfig = { ...base, ...patch };
+          await this.device.sendFeatureReport(buildConfigSetReport(CONFIG_CMD.SET, merged));
+          this.lastConfig = merged;
+          this.lastError = null;
+        } catch (error) {
+          this.lastError = error instanceof Error ? error.message : String(error);
+          break;
+        } finally {
+          this.busy = false;
+        }
+      }
+      await this.refreshConfig();
+    } finally {
+      this.flushPromise = null;
+      this.busy = false;
+      this.publish();
+    }
+  }
+
   async saveConfig(): Promise<BridgeSnapshot> {
+    if (this.flushPromise) {
+      await this.flushPromise;
+    }
     if (!this.device || this.busy) {
       return this.getSnapshot();
     }
@@ -170,6 +195,9 @@ export class BridgeService extends EventEmitter {
   }
 
   async resetConfig(): Promise<BridgeSnapshot> {
+    if (this.flushPromise) {
+      await this.flushPromise;
+    }
     if (!this.device || this.busy) {
       return this.getSnapshot();
     }
