@@ -222,13 +222,14 @@ void remap_apply(uint8_t *p)
             new_nib = DS5_DPAD_NONE;
     }
 
-    /* Write back button bytes, preserving d-pad nibble in byte 7 */
-    p[7] = (p[7] & 0xF0)
-         | (dst[REMAP_BTN_SQUARE]   ? 0x10 : 0)
+    /* Write back button bytes: high nibble rebuilt from dst (never keep
+     * the source button bits, otherwise the remapped key double-fires),
+     * low nibble carries the computed D-pad direction. */
+    p[7] = (dst[REMAP_BTN_SQUARE]   ? 0x10 : 0)
          | (dst[REMAP_BTN_CROSS]    ? 0x20 : 0)
          | (dst[REMAP_BTN_CIRCLE]   ? 0x40 : 0)
-         | (dst[REMAP_BTN_TRIANGLE] ? 0x80 : 0);
-    p[7] = (p[7] & 0xF0) | (new_nib & 0x0F);
+         | (dst[REMAP_BTN_TRIANGLE] ? 0x80 : 0)
+         | (new_nib & 0x0F);
 
     p[8] = (dst[REMAP_BTN_L1]      ? 0x01 : 0)
          | (dst[REMAP_BTN_R1]      ? 0x02 : 0)
