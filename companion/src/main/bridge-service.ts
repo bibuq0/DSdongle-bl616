@@ -146,13 +146,25 @@ export class BridgeService extends EventEmitter {
   }
 
   private async flushPendingConfig(): Promise<void> {
+    // B1: pin the device this flush belongs to. If a reconnect replaces the
+    // device mid-flush, the old flush must stop sending and must NOT clear
+    // the new device's busy/flushPromise in its finally block.
+    const owner = this.device;
+    if (!owner) {
+      this.flushPromise = null;
+      return;
+    }
     try {
-      while (this.device) {
+      while (this.device === owner) {
         const patch = this.pendingConfigPatch;
         if (!patch) {
-          // Nothing pending (anymore): final refresh and stop.
+          // Nothing pending: final refresh, then re-check once more so a
+          // patch arriving during the refresh is not left stranded (A1).
           await this.refreshConfig();
-          break;
+          if (!this.pendingConfigPatch) {
+            break;
+          }
+          continue;
         }
         this.pendingConfigPatch = null;
         this.busy = true;
@@ -164,7 +176,7 @@ export class BridgeService extends EventEmitter {
             break;
           }
           const merged: DualsenseConfig = { ...base, ...patch };
-          await this.device.sendFeatureReport(buildConfigSetReport(CONFIG_CMD.SET, merged));
+          await owner.sendFeatureReport(buildConfigSetReport(CONFIG_CMD.SET, merged));
           this.lastConfig = merged;
           this.lastError = null;
         } catch (error) {
@@ -175,16 +187,37 @@ export class BridgeService extends EventEmitter {
         }
       }
     } finally {
-      this.flushPromise = null;
-      this.busy = false;
+      if (this.device === owner) {
+        this.busy = false;
+        this.flushPromise = null;
+      }
       this.publish();
     }
   }
 
-  async saveConfig(): Promise<BridgeSnapshot> {
-    if (this.flushPromise) {
-      await this.flushPromise;
+  /**
+   * Wait until every pending config change has been written to the dongle
+   * (in-flight flush finishes, stranded patches get flushed too).
+   */
+  private async drainPendingConfig(): Promise<void> {
+    for (let guard = 0; guard < 5; guard++) {
+      if (this.flushPromise) {
+        await this.flushPromise;
+        continue;
+      }
+      if (this.pendingConfigPatch && this.device && !this.busy) {
+        this.flushPromise = this.flushPendingConfig();
+        await this.flushPromise;
+        continue;
+      }
+      break;
     }
+  }
+
+  async saveConfig(): Promise<BridgeSnapshot> {
+    // A5: make sure every pending edit is actually written before SAVE,
+    // otherwise the flash snapshot would miss the last change.
+    await this.drainPendingConfig();
     if (!this.device || this.busy) {
       return this.getSnapshot();
     }
@@ -204,9 +237,7 @@ export class BridgeService extends EventEmitter {
   }
 
   async resetConfig(): Promise<BridgeSnapshot> {
-    if (this.flushPromise) {
-      await this.flushPromise;
-    }
+    await this.drainPendingConfig();
     this.pendingConfigPatch = null; // stale pending edits must not overwrite the defaults
     if (!this.device || this.busy) {
       return this.getSnapshot();
@@ -316,6 +347,7 @@ export class BridgeService extends EventEmitter {
       }
     });
     this.busy = false;
+    this.flushPromise = null; // a stale flush from the previous device must not be awaited/overwritten
     this.lastError = null;
     void this.probeRemapLength(device).finally(() => {
       void this.refreshAll().finally(() => {
