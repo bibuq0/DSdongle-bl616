@@ -113,6 +113,11 @@ export class BridgeService extends EventEmitter {
   }
 
   async requestRescan(): Promise<BridgeSnapshot> {
+    const stale = this.device;
+    this.device = null;
+    if (stale) {
+      stale.close();
+    }
     this.teardown();
     this.scheduleConnect(STARTUP_RESCAN_DELAY_MS);
     return this.getSnapshot();
@@ -142,8 +147,13 @@ export class BridgeService extends EventEmitter {
 
   private async flushPendingConfig(): Promise<void> {
     try {
-      while (this.pendingConfigPatch && this.device) {
+      while (this.device) {
         const patch = this.pendingConfigPatch;
+        if (!patch) {
+          // Nothing pending (anymore): final refresh and stop.
+          await this.refreshConfig();
+          break;
+        }
         this.pendingConfigPatch = null;
         this.busy = true;
         this.publish();
@@ -164,7 +174,6 @@ export class BridgeService extends EventEmitter {
           this.busy = false;
         }
       }
-      await this.refreshConfig();
     } finally {
       this.flushPromise = null;
       this.busy = false;
@@ -198,6 +207,7 @@ export class BridgeService extends EventEmitter {
     if (this.flushPromise) {
       await this.flushPromise;
     }
+    this.pendingConfigPatch = null; // stale pending edits must not overwrite the defaults
     if (!this.device || this.busy) {
       return this.getSnapshot();
     }
@@ -344,6 +354,12 @@ export class BridgeService extends EventEmitter {
       const raw = await this.device.getFeatureReport(REPORT_ID.STATUS);
       this.snapshot.status = parseStatusReport(raw);
       this.consecutivePollFailures = 0;
+      // Retry the config read while it hasn't loaded yet — otherwise a
+      // single failed 0xF7 at connect time leaves the app stuck on the
+      // "reading configuration" page with no way out.
+      if (!this.snapshot.config) {
+        await this.refreshConfig();
+      }
     } catch {
       // Device likely re-enumerated (e.g. after a firmware reset).
       this.consecutivePollFailures++;
@@ -465,6 +481,7 @@ export class BridgeService extends EventEmitter {
     };
     this.lastConfig = null;
     this.lastRemap = null;
+    this.pendingConfigPatch = null;
   }
 
   private clearTimers(): void {
