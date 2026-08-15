@@ -220,7 +220,7 @@ firmware/               板级烧录配置 + 本地编译产物（二进制已 g
 - [CherryUSB](https://github.com/cherry-embedded/CherryUSB) —— USB 协议栈
 - [xiph/opus](https://github.com/xiph/opus) —— Opus 音频编解码库（定点模式）
 - Linux 内核 `hid-playstation.c` —— DualSense 协议偏移参考
-- BL618 移植由 [Cursor](https://www.cursor.com/) + Claude Opus 4.6 协助开发
+- BL616 移植由 [deepseekV4 Flash](https://www.deepseek.com/) + OpenCode 协助开发
 
 ## 第三方声明
 
