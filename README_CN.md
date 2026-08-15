@@ -337,6 +337,8 @@ firmware/               板级烧录配置 + 本地编译产物（二进制已 g
 
 ## 致谢
 
+- [sqlCRT/ds5dongle-bl618-opensource](https://github.com/sqlCRT/ds5dongle-bl618-opensource) —— 本固件开源版本的来源
+- [SundayMoments/DS5_Bridge](https://github.com/SundayMoments/DS5_Bridge) —— Windows 伴生应用（`companion/` 目录、按键 glyph 图标、手柄素材与 UI 设计）的移植来源
 - [awalol/DS5Dongle](https://github.com/awalol/DS5Dongle) —— 原始 Pico 2W 实现，核心协议参考
 - [bouffalolab/bouffalo_sdk](https://github.com/bouffalolab/bouffalo_sdk) —— BL618 SDK + Zephyr BT 栈
 - [CherryUSB](https://github.com/cherry-embedded/CherryUSB) —— USB 协议栈

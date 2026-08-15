@@ -339,10 +339,12 @@ The companion web configuration tool is intentionally not open-sourced, in order
 
 ## Acknowledgements
 
+- [sqlCRT/ds5dongle-bl618-opensource](https://github.com/sqlCRT/ds5dongle-bl618-opensource) — source of this open-source firmware release
+- [SundayMoments/DS5_Bridge](https://github.com/SundayMoments/DS5_Bridge) — source of the Windows companion app (`companion/`, button glyphs, controller art and UI design)
 - [awalol/DS5Dongle](https://github.com/awalol/DS5Dongle) — original Pico 2W implementation, core protocol reference
 - [bouffalolab/bouffalo_sdk](https://github.com/bouffalolab/bouffalo_sdk) — BL618 SDK + Zephyr BT stack
 - [CherryUSB](https://github.com/cherry-embedded/CherryUSB) — USB stack
-- [xiph/opus](https://github.com/xiph/opus) — Opus audio codec (fixed-point mode)
+- [xiph/opus](https://github.com/xiph/opus) — Opus audio codec (fixed-point)
 - Linux kernel `hid-playstation.c` — DualSense protocol offset reference
 - BL618 porting developed with [Cursor](https://www.cursor.com/) + Claude Opus 4.6
 
