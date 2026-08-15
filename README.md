@@ -39,6 +39,28 @@ The `companion/` directory holds an Electron + React Windows configuration tool 
 - Firmware flashing: ships BLFlashCommand + default firmware inside the installer — flash over serial ISP without the SDK
 - Live status: controller connection state (auto-detect disconnect), battery / RSSI / firmware version
 
+**Screenshots:**
+
+<p align="center">
+  <img src="docs/screenshots/app-overview.png" width="720" alt="Overview page" />
+  <br><em>Overview: connection / battery / RSSI / audio streams</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/app-audio.png" width="720" alt="Audio page" />
+  <br><em>Audio: speaker / headset volume, gain, passthrough</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/app-buttons.png" width="720" alt="Button remapping page" />
+  <br><em>Button remapping: controller art + glyphs, applies instantly and persists</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/app-system.png" width="720" alt="System page" />
+  <br><em>System: mode / polling rate / USB / firmware flashing</em>
+</p>
+
 ## Controller Feature Compatibility
 
 The USB side presents DualSense-compatible HID descriptors (auto-switching between DS and Edge), so hosts treat the dongle like a wired controller.

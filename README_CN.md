@@ -39,6 +39,28 @@
 - **固件刷写**：内置 BLFlashCommand + 默认固件（打包进安装包），无需 SDK 即可串口 ISP 刷写
 - **状态监测**：手柄连接状态实时显示（断连自动检测），电量 / RSSI / 固件版本
 
+**界面预览：**
+
+<p align="center">
+  <img src="docs/screenshots/app-overview.png" width="720" alt="概览页" />
+  <br><em>概览：连接状态 / 电量 / 信号 / 音频流</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/app-audio.png" width="720" alt="音频页" />
+  <br><em>音频：扬声器 / 耳机音量、增益、透传开关</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/app-buttons.png" width="720" alt="按键映射页" />
+  <br><em>按键映射：手柄图 + glyph 图标，实时生效并持久化</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/app-system.png" width="720" alt="系统页" />
+  <br><em>系统：模式 / 轮询率 / USB / 固件刷写</em>
+</p>
+
 ## 手柄功能兼容性
 
 USB 端提供 DualSense 兼容的 HID 描述符（DS 与 Edge 自动切换），主机将其视为有线手柄。
