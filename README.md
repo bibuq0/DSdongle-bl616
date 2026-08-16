@@ -237,7 +237,7 @@ firmware/               板级烧录配置 + 本地编译产物（二进制已 g
 
 ## 赞助支持
 
-如果觉得项目不错，可以赞助我一点token。
+如果觉得项目不错，可以赞助我一点token。随意金额即可。
 
 <p align="center">
   <img src="docs/payway.jpg" width="220" alt="支付宝收款码" />
