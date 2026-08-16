@@ -233,6 +233,14 @@ firmware/               Board flash configs + local build output (binaries git-i
 | Single active controller | One controller connected at a time; up to 8 pairings remembered (single click switches) |
 | Board | Only the LCTech BL616 is adapted and validated |
 
+## Support
+
+If you like the project, you can sponsor me a little token.
+
+<p align="center">
+  <img src="docs/payway.jpg" width="220" alt="Alipay QR code" />
+</p>
+
 ## Acknowledgements
 
 - [sqlCRT/ds5dongle-bl618-opensource](https://github.com/sqlCRT/ds5dongle-bl618-opensource) — source of this open-source firmware release

@@ -235,6 +235,14 @@ firmware/               板级烧录配置 + 本地编译产物（二进制已 g
 | 单手柄在线 | 同一时刻只能连接一个手柄；最多记忆 8 个配对（单击切换） |
 | 开发板 | 仅适配并验证 LCTech BL616 |
 
+## 赞助支持
+
+如果觉得项目不错，可以赞助我一点token。
+
+<p align="center">
+  <img src="docs/payway.jpg" width="220" alt="支付宝收款码" />
+</p>
+
 ## 致谢
 
 - [sqlCRT/ds5dongle-bl618-opensource](https://github.com/sqlCRT/ds5dongle-bl618-opensource) —— 本固件开源版本的来源
