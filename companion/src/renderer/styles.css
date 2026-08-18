@@ -761,7 +761,6 @@ html[data-theme='light'] .remap-pill.changed .rp-dst {
 
 .guide-list .guide-label {
   color: var(--text-primary);
-  font-weight: 600;
 }
 
 .guide-table {
