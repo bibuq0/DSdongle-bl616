@@ -67,6 +67,14 @@ static volatile TickType_t connecting_start_tick = 0;
 static volatile bool dse_mode_changed = false;
 static volatile bool prev_led_disabled = false;
 static volatile bool scan_after_disconnect = false;
+/* Deferred USB soft-disconnect: wait N seconds after BT disconnect before
+ * pulling USB, so quick controller switching preserves Windows audio session. */
+#define USB_DEFERRED_DISC_US  (10ULL * 1000000ULL)
+static volatile uint64_t usb_deferred_disc_us = 0;
+/* Deferred primer re-send: after CONNECTED, wait ~300ms then re-send
+ * volume to ensure the controller has fully initialized its HID channel. */
+static volatile uint64_t primer_resend_us = 0;
+#define PRIMER_RESEND_DELAY_US  (300ULL * 1000ULL)
 /* Stealth mode: frames of Windows USB output to wait before sending primer */
 static volatile uint8_t stealth_primer_countdown = 0;
 static uint8_t output_seq = 0;  /* sequence counter for 0x31 BT output */
@@ -233,6 +241,13 @@ static void send_led_primer(void)
                            cfg->speaker_gain, cfg->trigger_reduce);
     uint8_t merged[DS5_USB_OUTPUT_PAYLOAD_LEN];
     state_mgr_get(merged, DS5_USB_OUTPUT_PAYLOAD_LEN);
+
+    /* Always include volume in primer so controller starts with correct level.
+     * Critical for lock_volume: without this, controller resets to default 0. */
+    merged[0] |= 0x30;
+    LOG_INF("[PRIMER] vol hp=%d spk=%d lock=%d\n",
+            cfg->headset_volume, cfg->speaker_volume, cfg->lock_volume);
+
     merged[44] = cfg->led_r;
     merged[45] = cfg->led_g;
     merged[46] = cfg->led_b;
@@ -294,6 +309,7 @@ static void on_hid_state(enum bt_hid_host_state state)
         handshake_start_us = 0;
         connecting_start_tick = 0;
         stealth_primer_countdown = 0;
+        primer_resend_us = 0;
         bool was_connected = ds5_connected;
         if (was_connected) {
             uint64_t since_out = bflb_mtimer_get_time_us() - out_isr_ts_us;
@@ -319,8 +335,10 @@ static void on_hid_state(enum bt_hid_host_state state)
         first_input_logged = false;
         usb_wake_on_bt_disconnect();
         if (was_connected && !bt_hid_host_is_switching() &&
-            !config_wake_enabled() && !usb_wake_host_suspended())
-            usb_soft_disconnect();
+            !config_wake_enabled() && !usb_wake_host_suspended()) {
+            usb_deferred_disc_us = bflb_mtimer_get_time_us();
+            LOG_INF("[MAIN] USB disconnect deferred (10s timer started)\n");
+        }
         dse_reset();
         audio_reset();
         remap_on_disconnect();
@@ -392,9 +410,14 @@ static void on_hid_state(enum bt_hid_host_state state)
             /* Reconnection: USB was soft-disconnected in IDLE handler.
              * Do a full USB replug so the host re-enumerates and re-sends
              * all init (including adaptive triggers). */
+            if (usb_deferred_disc_us) {
+                usb_deferred_disc_us = 0;
+                LOG_INF("[MAIN] Deferred disconnect cancelled - USB stayed connected\n");
+            } else {
+                usb_soft_connect();
+                LOG_INF("[MAIN] USB replug (was disconnected)\n");
+            }
             stealth_primer_countdown = 5;
-            LOG_INF("[MAIN] Reconnect: USB replug + primer pending\n");
-            usb_soft_connect();
         } else if (config_usb_stealth()) {
             /* First connection, stealth: USB was disconnected at boot.
              * Let Windows send blue init, then override with our primer. */
@@ -411,6 +434,7 @@ static void on_hid_state(enum bt_hid_host_state state)
         ever_connected = true;
         battery_low = false;
         battery_warn = false;
+        primer_resend_us = bflb_mtimer_get_time_us();
         usb_wake_on_bt_connect();
         conn_led_start_us = bflb_mtimer_get_time_us();
         conn_led_off = false;
@@ -673,6 +697,11 @@ static void bt_task(void *arg)
 
         bt_hid_host_persist_if_dirty();
 
+        if (usb_wake_radio_wake_pending()) {
+            bt_hid_host_radio_wake();
+            LOG_INF("[MAIN] Radio wake - BT scan re-enabled after standby\n");
+        }
+
         /* Periodic RSSI read (~every 5 s) */
         {
             static uint16_t rssi_tick = 0;
@@ -695,6 +724,15 @@ static void bt_task(void *arg)
             }
         } else {
             disconnecting_since = 0;
+        }
+
+        /* Deferred USB soft-disconnect: if BT disconnected and no reconnection
+         * within the timeout, pull USB so Windows removes the phantom device. */
+        if (usb_deferred_disc_us && !ds5_connected &&
+            (bflb_mtimer_get_time_us() - usb_deferred_disc_us) > USB_DEFERRED_DISC_US) {
+            usb_deferred_disc_us = 0;
+            usb_soft_disconnect();
+            LOG_INF("[MAIN] Deferred USB disconnect (no reconnect within 10s)\n");
         }
 
         if (bt_hid_host_poll_scan_early()) {
@@ -901,7 +939,7 @@ next_output_iter:;
             }
 
             if (bt_hid_host_get_state() == BT_HID_STATE_IDLE &&
-                idle_ticks >= 20) {
+                idle_ticks >= 20 && !usb_wake_host_suspended()) {
                 if (bt_hid_host_has_pending_conn()) {
                     if (stale_conn_since == 0)
                         stale_conn_since = bflb_mtimer_get_time_us();
@@ -1198,6 +1236,14 @@ static void usb_task(void *arg)
         }
 
         usb_wake_task();
+
+        if (primer_resend_us && ds5_connected &&
+            stealth_primer_countdown == 0 &&
+            (bflb_mtimer_get_time_us() - primer_resend_us) > PRIMER_RESEND_DELAY_US) {
+            primer_resend_us = 0;
+            send_led_primer();
+        }
+
         dse_task();
     }
 }

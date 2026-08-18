@@ -1,6 +1,6 @@
 {
   "name": "ds5dongle-bl618-companion",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Windows companion app for the DS5Dongle BL618 (BL616) firmware.",
   "productName": "DS5 Dongle",
