@@ -404,39 +404,25 @@ export default function App(): React.JSX.Element {
 
 function Usage(): React.JSX.Element {
   const { t } = useI18n();
-  const pairingRows: Array<{
-    title: TranslationKey;
-    steps: TranslationKey;
-    time: TranslationKey;
-  }> = [
-    { title: 'usage.pairing.first.title', steps: 'usage.pairing.first.steps', time: 'usage.pairing.first.time' },
-    { title: 'usage.pairing.reconnect.title', steps: 'usage.pairing.reconnect.steps', time: 'usage.pairing.reconnect.time' },
-    { title: 'usage.pairing.repair.title', steps: 'usage.pairing.repair.steps', time: 'usage.pairing.repair.time' },
-    { title: 'usage.pairing.switch.title', steps: 'usage.pairing.switch.steps', time: 'usage.pairing.switch.time' },
-    { title: 'usage.pairing.new.title', steps: 'usage.pairing.new.steps', time: 'usage.pairing.new.time' },
-    { title: 'usage.pairing.reset.title', steps: 'usage.pairing.reset.steps', time: 'usage.pairing.reset.time' }
+  const pairingRows: Array<{ title: TranslationKey; steps: TranslationKey }> = [
+    { title: 'usage.pairing.first.title', steps: 'usage.pairing.first.steps' },
+    { title: 'usage.pairing.reconnect.title', steps: 'usage.pairing.reconnect.steps' },
+    { title: 'usage.pairing.repair.title', steps: 'usage.pairing.repair.steps' },
+    { title: 'usage.pairing.switch.title', steps: 'usage.pairing.switch.steps' },
+    { title: 'usage.pairing.new.title', steps: 'usage.pairing.new.steps' },
+    { title: 'usage.pairing.reset.title', steps: 'usage.pairing.reset.steps' }
   ];
   return (
     <div className="feature-card-grid">
       <Card title={t('usage.pairing.title')}>
-        <table className="guide-table">
-          <thead>
-            <tr>
-              <th>{t('usage.pairing.colScenario')}</th>
-              <th>{t('usage.pairing.colSteps')}</th>
-              <th>{t('usage.pairing.colTime')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pairingRows.map((row) => (
-              <tr key={row.title}>
-                <td className="gtitle">{t(row.title)}</td>
-                <td>{t(row.steps)}</td>
-                <td className="gtime">{t(row.time)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <ul className="guide-list">
+          {pairingRows.map((row) => (
+            <li key={row.title}>
+              <span className="guide-label">{t(row.title)}：</span>
+              {t(row.steps)}
+            </li>
+          ))}
+        </ul>
       </Card>
       <Card title={t('usage.buttons.title')}>
         <ul className="guide-list">
