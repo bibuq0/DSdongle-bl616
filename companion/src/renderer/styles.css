@@ -759,10 +759,6 @@ html[data-theme='light'] .remap-pill.changed .rp-dst {
   margin-top: 6px;
 }
 
-.guide-list .guide-label {
-  color: var(--text-primary);
-}
-
 .guide-table {
   width: 100%;
   border-collapse: collapse;
