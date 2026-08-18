@@ -404,15 +404,39 @@ export default function App(): React.JSX.Element {
 
 function Usage(): React.JSX.Element {
   const { t } = useI18n();
+  const pairingRows: Array<{
+    title: TranslationKey;
+    steps: TranslationKey;
+    time: TranslationKey;
+  }> = [
+    { title: 'usage.pairing.first.title', steps: 'usage.pairing.first.steps', time: 'usage.pairing.first.time' },
+    { title: 'usage.pairing.reconnect.title', steps: 'usage.pairing.reconnect.steps', time: 'usage.pairing.reconnect.time' },
+    { title: 'usage.pairing.repair.title', steps: 'usage.pairing.repair.steps', time: 'usage.pairing.repair.time' },
+    { title: 'usage.pairing.switch.title', steps: 'usage.pairing.switch.steps', time: 'usage.pairing.switch.time' },
+    { title: 'usage.pairing.new.title', steps: 'usage.pairing.new.steps', time: 'usage.pairing.new.time' },
+    { title: 'usage.pairing.reset.title', steps: 'usage.pairing.reset.steps', time: 'usage.pairing.reset.time' }
+  ];
   return (
     <div className="feature-card-grid">
       <Card title={t('usage.pairing.title')}>
-        <ol className="guide-list">
-          <li>{t('usage.pairing.step1')}</li>
-          <li>{t('usage.pairing.step2')}</li>
-          <li>{t('usage.pairing.step3')}</li>
-          <li>{t('usage.pairing.step4')}</li>
-        </ol>
+        <table className="guide-table">
+          <thead>
+            <tr>
+              <th>{t('usage.pairing.colScenario')}</th>
+              <th>{t('usage.pairing.colSteps')}</th>
+              <th>{t('usage.pairing.colTime')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pairingRows.map((row) => (
+              <tr key={row.title}>
+                <td className="gtitle">{t(row.title)}</td>
+                <td>{t(row.steps)}</td>
+                <td className="gtime">{t(row.time)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </Card>
       <Card title={t('usage.buttons.title')}>
         <ul className="guide-list">
@@ -429,7 +453,7 @@ function Usage(): React.JSX.Element {
           <li>{t('usage.led.disconnect')}</li>
           <li>{t('usage.led.low')}</li>
           <li>{t('usage.led.critical')}</li>
-          <li>{t('usage.led.once')}</li>
+          <li>{t('usage.led.off')}</li>
           <li>{t('usage.led.triple')}</li>
         </ul>
       </Card>

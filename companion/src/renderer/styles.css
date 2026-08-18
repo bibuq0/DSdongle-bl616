@@ -759,6 +759,47 @@ html[data-theme='light'] .remap-pill.changed .rp-dst {
   margin-top: 6px;
 }
 
+.guide-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.guide-table th,
+.guide-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--surface-divider);
+}
+
+.guide-table th {
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+
+.guide-table td {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.guide-table .gtitle {
+  color: var(--text-primary);
+  font-weight: 600;
+  white-space: nowrap;
+  width: 1%;
+}
+
+.guide-table .gtime {
+  color: var(--text-dim);
+  white-space: nowrap;
+  width: 1%;
+}
+
 .remap-table {
   width: 100%;
   border-collapse: collapse;
