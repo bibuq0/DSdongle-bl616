@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   ArrowRight,
+  BookOpen,
   Gamepad2,
   Joystick,
   LayoutDashboard,
@@ -48,7 +49,7 @@ import dpadRightGlyph from '../../assets/glyphs/ps5-buttons-outline-white/svg/D-
 import { useI18n, type TranslationKey } from './i18n';
 import { useTheme } from './theme';
 
-type PageId = 'overview' | 'audio' | 'haptics' | 'triggers' | 'lighting' | 'buttons' | 'system';
+type PageId = 'overview' | 'audio' | 'haptics' | 'triggers' | 'lighting' | 'buttons' | 'system' | 'usage';
 
 const PAGES: Array<{ id: PageId; key: TranslationKey; icon: LucideIcon }> = [
   { id: 'overview', key: 'nav.overview', icon: LayoutDashboard },
@@ -57,7 +58,8 @@ const PAGES: Array<{ id: PageId; key: TranslationKey; icon: LucideIcon }> = [
   { id: 'triggers', key: 'nav.triggers', icon: Joystick },
   { id: 'lighting', key: 'nav.lighting', icon: Lightbulb },
   { id: 'buttons', key: 'nav.buttons', icon: Gamepad2 },
-  { id: 'system', key: 'nav.system', icon: Settings }
+  { id: 'system', key: 'nav.system', icon: Settings },
+  { id: 'usage', key: 'nav.usage', icon: BookOpen }
 ];
 
 const CONTROLLER_MODE_LABELS: Record<number, string> = {
@@ -358,6 +360,8 @@ export default function App(): React.JSX.Element {
                 ) : null}
                 <FirmwareFlash />
               </>
+            ) : page === 'usage' ? (
+              <Usage />
             ) : connected && config ? (
               <>
                 {page === 'overview' ? (
@@ -395,6 +399,41 @@ export default function App(): React.JSX.Element {
         </main>
       </div>
     </>
+  );
+}
+
+function Usage(): React.JSX.Element {
+  const { t } = useI18n();
+  return (
+    <div className="feature-card-grid">
+      <Card title={t('usage.pairing.title')}>
+        <ol className="guide-list">
+          <li>{t('usage.pairing.step1')}</li>
+          <li>{t('usage.pairing.step2')}</li>
+          <li>{t('usage.pairing.step3')}</li>
+          <li>{t('usage.pairing.step4')}</li>
+        </ol>
+      </Card>
+      <Card title={t('usage.buttons.title')}>
+        <ul className="guide-list">
+          <li>{t('usage.buttons.click')}</li>
+          <li>{t('usage.buttons.double')}</li>
+          <li>{t('usage.buttons.hold')}</li>
+        </ul>
+      </Card>
+      <Card title={t('usage.led.title')}>
+        <ul className="guide-list">
+          <li>{t('usage.led.slow')}</li>
+          <li>{t('usage.led.fast')}</li>
+          <li>{t('usage.led.solid')}</li>
+          <li>{t('usage.led.disconnect')}</li>
+          <li>{t('usage.led.low')}</li>
+          <li>{t('usage.led.critical')}</li>
+          <li>{t('usage.led.once')}</li>
+          <li>{t('usage.led.triple')}</li>
+        </ul>
+      </Card>
+    </div>
   );
 }
 

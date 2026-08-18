@@ -746,6 +746,18 @@ html[data-theme='light'] .remap-pill.changed .rp-dst {
   color: #fff;
 }
 
+/* ---- guide / usage page ---- */
+.guide-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.guide-list li + li {
+  margin-top: 6px;
+}
 
 .remap-table {
   width: 100%;
