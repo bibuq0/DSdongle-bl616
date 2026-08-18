@@ -321,7 +321,7 @@ export default function App(): React.JSX.Element {
 
             {snapshot?.lastError ? <div className="error">{snapshot.lastError}</div> : null}
 
-            {!connected && page !== 'system' ? (
+            {!connected && page !== 'system' && page !== 'usage' ? (
               <div className="empty-card">
                 <p style={{ margin: 0 }}>{t('status.dongleNotFound')}</p>
                 <div className="actions" style={{ marginTop: 12 }}>
@@ -332,7 +332,7 @@ export default function App(): React.JSX.Element {
               </div>
             ) : null}
 
-            {connected && !config && page !== 'system' ? (
+            {connected && !config && page !== 'system' && page !== 'usage' ? (
               <div className="empty-card">
                 <p style={{ margin: 0 }}>{t('status.readingConfig')}</p>
               </div>
