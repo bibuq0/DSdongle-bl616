@@ -1174,18 +1174,20 @@ static void usb_task(void *arg)
                     if (ps_key_scheduled && now_us >= ps_key_sched_us &&
                         usb_gamepad_kbd_ready()) {
                         uint8_t kbd[8] = {0x08, 0, 0x0A, 0, 0, 0, 0, 0};
-                        usb_gamepad_send_kbd_report(kbd, sizeof(kbd));
-                        LOG_INF("[PS] Short press -> Win+G (delayed)\n");
-                        ps_key_pending = true;
-                        ps_key_rel_us = now_us + 30000ULL;
-                        ps_key_scheduled = false;
+                        if (usb_gamepad_send_kbd_report(kbd, sizeof(kbd)) == 0) {
+                            LOG_INF("[PS] Short press -> Win+G (delayed)\n");
+                            ps_key_pending = true;
+                            ps_key_rel_us = now_us + 30000ULL;
+                            ps_key_scheduled = false;
+                        }
                     }
 
                     if (ps_key_pending && now_us >= ps_key_rel_us) {
                         if (usb_gamepad_kbd_ready()) {
                             uint8_t up[8] = {0};
-                            usb_gamepad_send_kbd_report(up, sizeof(up));
-                            ps_key_pending = false;
+                            if (usb_gamepad_send_kbd_report(up, sizeof(up)) == 0) {
+                                ps_key_pending = false;
+                            }
                         }
                     }
 
@@ -1208,6 +1210,7 @@ static void usb_task(void *arg)
                         if (ps_debounced && !ps_was_pressed) {
                             ps_press_us = now_us;
                             ps_was_pressed = true;
+                            ps_key_scheduled = false;
                         } else if (!ps_debounced && ps_was_pressed) {
                             if (now_us - ps_press_us < 500000ULL) {
                                 /* Delay Win+G 150ms after release so host
