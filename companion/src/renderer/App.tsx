@@ -877,7 +877,7 @@ function System({
         <Row label={t('system.usbSerial')} hint={t('system.usbSerialHint') + ' · ' + t('system.replugHint')}>
           <Toggle value={config.enableUsbSn} onChange={(value) => apply({ enableUsbSn: value })} />
         </Row>
-        <Row label={t('system.psShortcut')} hint={t('system.psShortcutHint')}>
+        <Row label={t('system.psShortcut')} hint={t('system.psShortcutHint') + ' · ' + t('system.replugHint')}>
           <Toggle
             value={config.psShortcutEnabled}
             onChange={(value) => apply({ psShortcutEnabled: value })}
