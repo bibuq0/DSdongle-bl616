@@ -49,6 +49,7 @@ static bool current_dse_mode = false;
 
 static volatile bool usb_config_save_pending = false;
 static volatile bool usb_reset_pending = false;
+static volatile bool usb_reset_default_pending = false;
 static volatile bool usb_remap_save_pending  = false;
 static bool first_usb_send_logged = false;
 
@@ -705,6 +706,13 @@ void usb_gamepad_set_dse_mode(bool dse)
 ATTR_TCM_SECTION
 void usb_gamepad_process_deferred(void)
 {
+    if (usb_reset_default_pending) {
+        usb_reset_default_pending = false;
+        config_reset_default();
+        LOG_INF("[USB] CMD 0x03: config reset to defaults, rebooting\n");
+        vTaskDelay(pdMS_TO_TICKS(100));
+        GLB_SW_System_Reset();
+    }
     if (usb_reset_pending) {
         usb_reset_pending = false;
         config_save();
@@ -1190,7 +1198,7 @@ void usbd_hid_set_report(uint8_t busid, uint8_t intf, uint8_t report_id,
         } else if (cmd == 0x02) {
             usb_config_save_pending = true;
         } else if (cmd == 0x03) {
-            usb_reset_pending = true;
+            usb_reset_default_pending = true;
         }
         return;
     }

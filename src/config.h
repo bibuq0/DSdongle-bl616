@@ -39,6 +39,7 @@ struct __attribute__((packed)) config_body {
 void config_load(void);
 bool config_save(void);
 void config_validate(void);
+void config_reset_default(void);
 
 struct config_body *config_get(void);
 void config_set(const uint8_t *data, uint16_t len);

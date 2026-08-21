@@ -112,6 +112,29 @@ bool config_save(void)
     return false;
 }
 
+void config_reset_default(void)
+{
+    memset(&cfg, 0, sizeof(cfg));
+    cfg.config_version    = CONFIG_VERSION;
+    cfg.haptics_gain      = 1.0f;
+    cfg.speaker_volume    = 100;
+    cfg.headset_volume    = 100;
+    cfg.speaker_gain      = 2;
+    cfg.inactive_time     = 30;
+    cfg.disable_led       = 1;     /* auto-off LED after 1 min */
+    cfg.polling_rate_mode = 0;     /* default 250 Hz */
+    cfg.audio_buffer_length = 64;
+    cfg.controller_mode   = 2;     /* Auto */
+    cfg.enable_wake       = 0;
+    cfg.enable_usb_sn     = 1;     /* DS5Dongle always provides serial */
+    cfg.usb_stealth       = 0;     /* USB visible at boot (non-stealth) */
+    cfg.led_r             = 0xFF;
+    cfg.led_g             = 0xFF;
+    cfg.led_b             = 0xFF;
+    config_save();
+    LOG_INF("[CFG] Reset to defaults and saved\n");
+}
+
 struct config_body *config_get(void)
 {
     return &cfg;
