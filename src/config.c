@@ -88,7 +88,7 @@ void config_load(void)
         cfg.audio_buffer_length = 64;
         cfg.controller_mode   = 2;     /* Auto */
         cfg.enable_wake       = 0;
-        cfg.enable_usb_sn     = 1;     /* DS5Dongle always provides serial */
+        cfg.enable_usb_sn     = 0;     /* no USB serial (matches Pico: new instance path on replug) */
         cfg.usb_stealth       = 0;     /* USB visible at boot (non-stealth) */
         cfg.led_r             = 0xFF;
         cfg.led_g             = 0xFF;
@@ -126,7 +126,7 @@ void config_reset_default(void)
     cfg.audio_buffer_length = 64;
     cfg.controller_mode   = 2;     /* Auto */
     cfg.enable_wake       = 0;
-    cfg.enable_usb_sn     = 1;     /* DS5Dongle always provides serial */
+    cfg.enable_usb_sn     = 0;     /* no USB serial (matches Pico: new instance path on replug) */
     cfg.usb_stealth       = 0;     /* USB visible at boot (non-stealth) */
     cfg.led_r             = 0xFF;
     cfg.led_g             = 0xFF;

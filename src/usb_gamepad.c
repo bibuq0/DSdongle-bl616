@@ -1019,8 +1019,8 @@ static bool ds5_feature_fallback(uint8_t report_id, uint8_t *buf, uint32_t *len)
         memset(buf, 0, 64);
         buf[0] = 0x20;
         buf[24] = 0x00; buf[25] = 0x02; buf[26] = 0x00; buf[27] = 0x00;
-        buf[28] = 0x56; buf[29] = 0x02; buf[30] = 0x00; buf[31] = 0x00;
-        buf[44] = 0x21; buf[45] = 0x02;
+        buf[28] = 0x00; buf[29] = 0x03; buf[30] = 0x00; buf[31] = 0x00;
+        buf[44] = 0x25; buf[45] = 0x02;
         *len = 64;
         return true;
     }

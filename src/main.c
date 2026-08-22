@@ -365,8 +365,9 @@ static void on_hid_state(enum bt_hid_host_state state)
         usb_wake_on_bt_disconnect();
         if (was_connected && !bt_hid_host_is_switching() &&
             !config_wake_enabled() && !usb_wake_host_suspended()) {
-            usb_deferred_disc_us = bflb_mtimer_get_time_us();
-            LOG_INF("[MAIN] USB disconnect deferred (10s timer started)\n");
+            usb_deferred_disc_us = 0;
+            usb_soft_disconnect();
+            LOG_INF("[MAIN] USB soft-disconnected (Pico-style gate)\n");
         }
         dse_reset();
         audio_reset();
@@ -447,16 +448,14 @@ static void on_hid_state(enum bt_hid_host_state state)
                 LOG_INF("[MAIN] USB replug (was disconnected)\n");
             }
             stealth_primer_countdown = 5;
-        } else if (config_usb_stealth()) {
-            /* First connection, stealth: USB was disconnected at boot.
-             * Let Windows send blue init, then override with our primer. */
-            stealth_primer_countdown = 5;
-            LOG_INF("[MAIN] Stealth: primer pending after 5 USB output frames\n");
-            usb_soft_connect();
         } else {
-            /* First connection, non-stealth: USB already connected & enumerated.
-             * Just send primer directly — game already has its session. */
-            send_led_primer();
+            /* First connection: USB was kept disconnected until the
+             * controller is connected, so the host re-enumerates a fully
+             * initialized controller. Let Windows send blue init, then
+             * override with our primer. */
+            stealth_primer_countdown = 5;
+            LOG_INF("[MAIN] USB connect on first controller connect\n");
+            usb_soft_connect();
         }
 
         ds5_connected = true;
@@ -1034,10 +1033,11 @@ static void usb_task(void *arg)
                                   usb_wake_on_resume,
                                   usb_wake_on_configured);
 
-    if (config_usb_stealth()) {
-        vTaskDelay(pdMS_TO_TICKS(150));
-        usb_soft_disconnect();
-    }
+    /* Pico-style USB gating: keep USB disconnected until the controller
+     * is connected via BT, so Windows/Steam re-enumerate and re-initialize
+     * the controller on every reboot/reconnect (restores trigger state). */
+    vTaskDelay(pdMS_TO_TICKS(150));
+    usb_soft_disconnect();
 
     uint8_t raw_report[DS5_BT_INPUT_REPORT_SIZE];
     uint64_t last_activity_us = bflb_mtimer_get_time_us();
