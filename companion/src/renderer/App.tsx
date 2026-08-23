@@ -964,16 +964,6 @@ function FirmwareFlash(): React.JSX.Element {
   return (
     <div className="feature-card-grid single" style={{ marginTop: 14 }}>
       <Card title={t('flash.title')} subtitle={t('flash.intro')}>
-        <Row label={t('flash.tool')} hint={t('flash.toolHint')}>
-          <span className={`health-badge ${toolReady ? 'online' : 'offline'}`}>
-            <span className="dot" />
-            {toolReady === null
-              ? t('common.checking')
-              : toolReady
-                ? t('common.found')
-                : t('common.notFound')}
-          </span>
-        </Row>
         <Row label={t('flash.port')}>
           <select value={port} onChange={(event) => setPort(event.target.value)}>
             <option value="">{t('flash.selectPort')}</option>
