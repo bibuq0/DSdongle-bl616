@@ -48,6 +48,8 @@
 #define DS5_BATT_LEVEL_MASK       0x0F
 #define DS5_BATT_STATE_SHIFT      4
 #define DS5_BATT_STATE_DISCHARGE  0x00
+#define DS5_BATT_STATE_CHARGING   0x01
+#define DS5_BATT_STATE_COMPLETE   0x02
 #define DS5_BATT_LOW_THRESHOLD    1    /* PowerPercent <= 1 → ≤ 10% */
 #define DS5_BATT_WARN_THRESHOLD   2    /* PowerPercent <= 2 → ≤ 20% */
 

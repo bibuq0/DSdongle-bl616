@@ -228,6 +228,25 @@ static void apply_config_overlay(uint8_t *d, uint16_t len)
     }
 }
 
+/* Override the 5 player-indicator LEDs with a battery-level gauge.
+ * 0-25%: CENTER (bit2); 26-50%: INNER (bit1|bit3); 51-75%: CENTER+OUTER (bit2|bit0|bit4);
+ * 76-100%: INNER+OUTER (bit0|bit1|bit3|bit4).  Uses cached_battery_level (0-100). */
+static void apply_player_led_battery(uint8_t *d)
+{
+    uint8_t lvl = cached_battery_level;
+    uint8_t mask;
+    if (lvl <= 25)
+        mask = 0x04;            /* bit2: CENTER */
+    else if (lvl <= 50)
+        mask = 0x0A;            /* bit1|bit3: INNER */
+    else if (lvl <= 75)
+        mask = 0x15;            /* bit2|bit0|bit4: CENTER + OUTER */
+    else
+        mask = 0x1B;            /* bit0|bit1|bit3|bit4: INNER + OUTER */
+    d[43] = mask;
+    d[1] |= 0x10;               /* flags1 bit4: AllowPlayerIndicators */
+}
+
 /* Called from the output forwarding path to snapshot game state
  * whenever the game sends a report with relevant flags set. */
 static void cache_output_state(const uint8_t *set_state_data)
@@ -294,6 +313,8 @@ static void send_led_primer(void)
         if (cached_trigger_flags & 0x08)
             memcpy(merged + 10 + 11, cached_trigger_l, 11);
     }
+
+    apply_player_led_battery(merged);
 
     uint8_t buf[DS5_BT_OUTPUT_EXT_SIZE];
     build_bt_output_ext(merged, DS5_USB_OUTPUT_PAYLOAD_LEN, buf);
@@ -862,6 +883,7 @@ static void bt_task(void *arg)
                 while (xQueueReceive(output_queue, usb_out, 0) == pdTRUE) {
                     uint8_t *payload = usb_out + 1;
                     apply_config_overlay(payload, DS5_USB_OUTPUT_PAYLOAD_LEN);
+                    apply_player_led_battery(payload);
                     cache_output_state(payload);
                     uint8_t bt_out[DS5_BT_OUTPUT_REPORT_SIZE];
                     build_bt_output(payload, DS5_USB_OUTPUT_PAYLOAD_LEN,
@@ -890,6 +912,7 @@ static void bt_task(void *arg)
                 }
 
                 apply_config_overlay(payload, DS5_USB_OUTPUT_PAYLOAD_LEN);
+                apply_player_led_battery(payload);
                 cache_output_state(payload);
                 uint8_t bt_out[DS5_BT_OUTPUT_REPORT_SIZE];
                 build_bt_output(payload, DS5_USB_OUTPUT_PAYLOAD_LEN,
@@ -1129,7 +1152,10 @@ static void usb_task(void *arg)
                 uint8_t batt = raw_report[2 + DS5_BATT_BYTE_OFFSET];
                 uint8_t pct  = batt & DS5_BATT_LEVEL_MASK;
                 uint8_t st   = (batt >> DS5_BATT_STATE_SHIFT) & 0x0F;
-                cached_battery_level = (pct > 10) ? 100 : pct * 10;
+                if (st == DS5_BATT_STATE_COMPLETE)
+                    cached_battery_level = 100;
+                else
+                    cached_battery_level = (pct > 10) ? 100 : pct * 10;
                 cached_battery_state = st;
                 bool discharging = (st == DS5_BATT_STATE_DISCHARGE);
                 bool is_low  = discharging && (pct <= DS5_BATT_LOW_THRESHOLD);

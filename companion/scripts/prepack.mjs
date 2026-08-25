@@ -22,7 +22,7 @@ mkdirSync(resFw, { recursive: true });
 cpSync(path.join(flashCube, 'BLFlashCommand.exe'), path.join(resFlash, 'BLFlashCommand.exe'));
 cpSync(path.join(flashCube, 'chips'), path.join(resFlash, 'chips'), { recursive: true });
 
-const files = ['boot2_bl616_isp_release_v8.1.8.bin', 'partition.bin', 'ds5dongle-lctech616.bin'];
+const files = ['boot2_bl616_isp_release_v8.1.8.bin', 'partition.bin', 'ds5dongle-lctech616.bin', 'ds5dongle-lctech616-hs.bin'];
 for (const f of files) {
   cpSync(path.join(fwDir, f), path.join(resFw, f));
 }
