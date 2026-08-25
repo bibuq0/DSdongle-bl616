@@ -4,6 +4,25 @@ All notable changes to DS5Dongle BL618 firmware are documented here.
 
 ---
 
+## v3.18 - 2026-08-25
+
+### Added
+- **玩家指示灯改为电量显示**：PS 手柄触控板下方的 5 颗白色玩家 LED 改为电量指示，按电量分档点亮：
+  - 0-25%：亮 bit2（CENTER，1 颗）
+  - 26-50%：亮 bit1|bit3（INNER，2 颗）
+  - 51-75%：亮 bit2|bit0|bit4（CENTER+OUTER，3 颗）
+  - 76-100%：亮 bit0|bit1|bit3|bit4（INNER+OUTER，4 颗）
+  - 在输出转发路径与 primer 中覆盖 byte 43，并置 flags1 bit4（AllowPlayerIndicators）
+- **电量解析精确化**：充满（Complete）状态显示 100%，否则按电量档 pct×10（0-10 档精确映射）
+- **固件同时输出全速版 + 高速版**：uild_windows.bat both 同时编译 ds5dongle-lctech616.bin（Full-Speed）与 ds5dongle-lctech616-hs.bin（High-Speed）；companion 安装包同时内置两版，刷写默认用全速版
+
+### Fixed
+- **拔插接收器后 Steam Input 右扳机失效**：改用 Pico 式 USB 门控——启动/蓝牙断开时软断开 USB，等手柄蓝牙连接成功后才枚举，让 Windows/Steam 每次重连都重新初始化手柄（重新发送右扳机效果）
+- **恢复默认功能失效**：0x03 命令从"仅重启"改为"恢复默认配置 + 保存 + 重启"，彻底修复"点恢复默认没用"
+
+### Changed
+- USB 序列号默认关闭（对齐 Pico，重连后 Steam 视为新设备）
+- 0x20 特征报告 fallback 版本提升（fw=0x0300、update=0x0225），避免 Steam 误判不支持新震动协议
 ## v3.17 — 2026-08-13
 
 ### Fixed
