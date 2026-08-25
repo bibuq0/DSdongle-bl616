@@ -4,6 +4,15 @@ All notable changes to DS5Dongle BL618 firmware are documented here.
 
 ---
 
+## v3.18.1 - 2026-08-25
+
+### Changed
+- **移除固件死代码**：删除 v3.17 输出透传化后无调用点的 `state_mgr_update()` / `state_mgr_should_send()` / `state_mgr_clear_oneshot_flags()`（旧"按 Allow 标志累积合并"逻辑及其配套清理），同步移除 `state_mgr.h` 对应声明与注释；不影响运行时行为（当前输出路径为逐帧透传 + `apply_config_overlay`）
+- **重新编译固件双版本**：`build_windows.bat both` 产出最新 `ds5dongle-lctech616.bin`（Full-Speed 兼容版）与 `ds5dongle-lctech616-hs.bin`（High-Speed 版）
+- **重新打包伴生应用**：`npm run package:win` 重建 DS5 Dongle 应用，内置最新双版本固件（SHA256 与 `firmware/lctech616/` 产物逐字节一致）
+
+---
+
 ## v3.18 - 2026-08-25
 
 ### Added
