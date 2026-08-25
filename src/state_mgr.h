@@ -13,14 +13,6 @@
 void state_mgr_init(const uint8_t *init_data, uint8_t len);
 
 /**
- * Selectively merge incoming USB SetStateData into persistent state.
- * Only fields whose Allow flags are set in the incoming data are updated;
- * unflagged fields retain their previous values.
- * Matches DS5Dongle's state_update logic.
- */
-void state_mgr_update(const uint8_t *data, uint8_t len);
-
-/**
  * Copy the current merged state into the output buffer.
  * The output always has all Allow flags set so the controller processes
  * every field.
@@ -83,26 +75,6 @@ void state_mgr_vol_ack(void);
  * game frames start accumulating from zero.  Called after primer send.
  */
 void state_mgr_clear_flags(void);
-
-/**
- * Clear only one-shot action flags (like ResetLights) that must not
- * persist across BT sends.  Called after each regular BT output send
- * to prevent one-shot flags from accumulating indefinitely.
- */
-void state_mgr_clear_oneshot_flags(void);
-
-/**
- * Check whether the given SetStateData should be forwarded to the
- * controller right now.
- * When the speaker is active, only reports with UseRumbleNotHaptics
- * or UseRumbleNotHaptics2 are allowed through; other reports are
- * suppressed because the haptic actuators are driven by the audio
- * stream. state_mgr_update() must still be called unconditionally
- * so that the merged state is up-to-date when audio stops.
- * @param data  SetStateData (47 bytes, same pointer passed to update)
- * @return true if the report should be sent to the controller
- */
-bool state_mgr_should_send(const uint8_t *data);
 
 /**
  * Persist custom LED color into internal state so subsequent
