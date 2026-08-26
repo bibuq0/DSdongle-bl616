@@ -31,8 +31,10 @@
 #define BT_TASK_PRIORITY      (configMAX_PRIORITIES - 2)
 #define USB_TASK_STACK_SIZE   6144
 #define USB_TASK_PRIORITY     (configMAX_PRIORITIES - 1)
-#define AUDIO_TASK_STACK_SIZE 8192
-#define AUDIO_TASK_PRIORITY   (configMAX_PRIORITIES - 1)
+#define STACK_WORDS(bytes) \
+    (((bytes) + sizeof(StackType_t) - 1) / sizeof(StackType_t))
+#define AUDIO_TASK_STACK_SIZE STACK_WORDS(1024*32)
+#define AUDIO_TASK_PRIORITY   (configMAX_PRIORITIES - 2)
 #define MIC_TASK_STACK_SIZE   4096
 #define MIC_TASK_PRIORITY     (configMAX_PRIORITIES - 3)
 #define LED_TASK_STACK_SIZE   512
@@ -630,6 +632,7 @@ static void bt_task(void *arg)
     conn_led_start_us = bflb_mtimer_get_time_us();
 
     for (;;) {
+        audio_check_respawn();
         loop_count++;
         if ((loop_count % 50) == 1) {
             LOG_DBG("[BT_TASK] loop #%u state=%d conn=%d\n",

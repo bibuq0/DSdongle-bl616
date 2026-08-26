@@ -48,7 +48,16 @@
 /*Count leading zeros.
   This macro should only be used for implementing ec_ilog(), if it is defined.
   All other code should use EC_ILOG() instead.*/
-#if defined(_MSC_VER) && (_MSC_VER >= 1400)
+#if defined(E907_OPUS_DSP) && !defined(E907_DISABLE_FF1)
+static __inline__ unsigned int opus_e907_clz(unsigned int value)
+{
+  unsigned int result;
+  __asm__ volatile("ff1 %0, %1" : "=r"(result) : "r"(value));
+  return result;
+}
+# define EC_CLZ0    (32)
+# define EC_CLZ(_x) opus_e907_clz((unsigned int)(_x))
+#elif defined(_MSC_VER) && (_MSC_VER >= 1400)
 #if defined(_MSC_VER) && (_MSC_VER >= 1910)
 # include <intrin0.h> /* Improve compiler throughput. */
 #else

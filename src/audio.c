@@ -7,6 +7,8 @@
 #include "FreeRTOS.h"
 #include "semphr.h"
 #include "queue.h"
+#include "timers.h"
+#include "bflb_mtimer.h"
 
 #include "opus.h"
 #include <string.h>
@@ -69,6 +71,10 @@ static int16_t  spk_resamp[OPUS_FRAME_SAMPLES * 2];
 static bool     mic_first_frame;
 static volatile bool encoding_in_progress;
 static volatile bool encoder_reset_pending;
+static volatile bool audio_task_killed;
+static volatile uint64_t encode_start_us;
+static TaskHandle_t audio_task_handle;
+static TimerHandle_t encode_watchdog;
 
 /* Double-frame buffers for 0x39 report (2x haptics + 2x opus per packet) */
 static uint8_t  opus_slots[2][OPUS_OUT_SIZE];
@@ -203,7 +209,9 @@ static void decimate_haptics(const int16_t *in, int8_t *out, uint32_t in_samples
 }
 
 /* ---- Build and send BT report 0x39 (547 bytes, double-frame) ---- */
-static void send_audio_report(void)
+#define AUDIO_SEND_FAIL_MAX  50   /* ~1s @ 21ms/frame → force disconnect */
+
+static int send_audio_report(void)
 {
     static uint8_t pkt[DS5_BT_AUDIO_REPORT_SIZE];
     memset(pkt, 0, sizeof(pkt));
@@ -245,12 +253,64 @@ static void send_audio_report(void)
                              DS5_BT_AUDIO_REPORT_SIZE - 4);
     ds5_write_le32(&pkt[DS5_BT_AUDIO_REPORT_SIZE - 4], crc);
 
+    static uint32_t fail_log_count = 0;
     int ret = bt_hid_host_send_output(pkt, DS5_BT_AUDIO_REPORT_SIZE);
-    if (ret)
-        LOG_ERR("[AUDIO] BT send failed: %d\n", ret);
+    if (ret) {
+        fail_log_count++;
+        if (fail_log_count <= 3 || (fail_log_count % 100) == 0)
+            LOG_ERR("[AUDIO] BT send failed: %d (x%lu)\n",
+                    ret, (unsigned long)fail_log_count);
+    } else {
+        fail_log_count = 0;
+    }
+    return ret;
 }
 
 /* ---- Public API ---- */
+
+/* audio_task is created here (initial + watchdog respawn) and defined below. */
+void audio_task(void *arg);
+
+#define STACK_WORDS(bytes) \
+    (((bytes) + sizeof(StackType_t) - 1) / sizeof(StackType_t))
+#define AUDIO_TASK_STACK_SIZE STACK_WORDS(1024*32)
+#define AUDIO_TASK_PRIORITY   (configMAX_PRIORITIES - 2)
+
+#define ENCODE_TIMEOUT_US  15000  /* 15ms — normal encode takes ~5-7ms */
+#define WATCHDOG_PERIOD_MS 20
+
+static void encode_watchdog_cb(TimerHandle_t timer)
+{
+    (void)timer;
+    if (!encoding_in_progress) return;
+
+    uint64_t elapsed = bflb_mtimer_get_time_us() - encode_start_us;
+    if (elapsed < ENCODE_TIMEOUT_US) return;
+
+    if (audio_task_handle) {
+        vTaskSuspend(audio_task_handle);
+    }
+
+    encoding_in_progress = false;
+    encoder_reset_pending = true;
+    audio_task_killed = true;
+}
+
+bool audio_check_respawn(void)
+{
+    if (!audio_task_killed) return false;
+    audio_task_killed = false;
+
+    if (audio_task_handle) {
+        vTaskDelete(audio_task_handle);
+        audio_task_handle = NULL;
+    }
+
+    xTaskCreate(audio_task, "audio", AUDIO_TASK_STACK_SIZE,
+                NULL, AUDIO_TASK_PRIORITY, NULL);
+    LOG_ERR("[WD-OPUS] respawned\n");
+    return true;
+}
 
 int audio_init(void)
 {
@@ -311,9 +371,14 @@ int audio_init(void)
     memset(opus_slots, 0, sizeof(opus_slots));
     memset(haptic_slots, 0, sizeof(haptic_slots));
 
-    LOG_INF("[AUDIO] Opus static init (enc=%d/%d dec=%d/%d mic_q=%p)\n",
+    encode_watchdog = xTimerCreate("wd-opus", pdMS_TO_TICKS(WATCHDOG_PERIOD_MS),
+                                   pdTRUE, NULL, encode_watchdog_cb);
+    if (encode_watchdog)
+        xTimerStart(encode_watchdog, 0);
+
+    LOG_INF("[AUDIO] Opus static init (enc=%d/%d dec=%d/%d mic_q=%p wd=%p)\n",
            enc_size, OPUS_ENC_MAX_SIZE, dec_size, OPUS_DEC_MAX_SIZE,
-           (void *)mic_queue);
+           (void *)mic_queue, (void *)encode_watchdog);
     return 0;
 }
 
@@ -347,8 +412,12 @@ void audio_task(void *arg)
 {
     (void)arg;
 
+    audio_task_handle = xTaskGetCurrentTaskHandle();
+
     SemaphoreHandle_t sem = (SemaphoreHandle_t)usb_audio_get_semaphore();
     LOG_INF("[AUDIO] Task started\n");
+
+    static uint16_t send_fail_streak = 0;
 
     for (;;) {
         if (xSemaphoreTake(sem, pdMS_TO_TICKS(25)) == pdTRUE) {
@@ -379,6 +448,7 @@ void audio_task(void *arg)
 
                     if (speaker_on) {
                         resample_512_480(spk_raw, spk_resamp);
+                        encode_start_us = bflb_mtimer_get_time_us();
                         encoding_in_progress = true;
                         int encoded = opus_encode(encoder, spk_resamp, OPUS_FRAME_SAMPLES,
                                                   opus_slots[slot], OPUS_OUT_SIZE);
@@ -400,7 +470,15 @@ void audio_task(void *arg)
                     }
                 }
 
-                send_audio_report();
+                if (send_audio_report() != 0) {
+                    send_fail_streak++;
+                    if (send_fail_streak >= AUDIO_SEND_FAIL_MAX)
+                        vTaskDelay(pdMS_TO_TICKS(20));
+                    else
+                        vTaskDelay(1);
+                } else {
+                    send_fail_streak = 0;
+                }
             }
         }
 

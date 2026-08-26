@@ -4,6 +4,16 @@ All notable changes to DS5Dongle BL618 firmware are documented here.
 
 ---
 
+## v3.18.2 - 2026-08-26
+
+### Changed
+- **移植 Opus DSP 优化**（源自 sqlCRT/ds5dongle-bl618-opensource v3.18）：`lib/opus/celt/fixed_generic.h` 定点宏改用 E907 内联指令（`mulsr64` / `kwmmul` / `kwmmul.u` / `mulh`），`ecintrin.h` 加 E907 `ff1` CLZ、`mathops.c` 加 `divu` 倒数；`opus_config.h` 统一 `E907_OPUS_DSP` 开关并默认关闭 `E907_DISABLE_FF1`（实测 ff1 在 ISR/管道压力下会卡死编码）
+- **移植编码 watchdog**：20ms 定时器监控 `opus_encode`，15ms 超时自动挂起 audio_task 并在 bt_task 主循环经 `audio_check_respawn()` 重生；`send_audio_report` 返回发送结果 + 失败节流日志与退避
+- **移植 USB LPM/BOS 修复**：新增 BOS 描述符声明不支持 USB 2.0 LPM，并清除 `USB_LPM_EN` / `USB_LPM_ACCEPT` 位（防止 Linux 尝试 L1 挂起）
+- FreeRTOS 定时器任务栈 `configMINIMAL_STACK_SIZE * 3`；audio_task 优先级 `MAX-1 → MAX-2`
+
+---
+
 ## v3.18.1 - 2026-08-25
 
 ### Changed

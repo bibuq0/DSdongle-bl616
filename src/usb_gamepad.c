@@ -529,6 +529,27 @@ static const char *desc_string_cb(uint8_t speed, uint8_t index)
     }
 }
 
+/* BOS descriptor: declare USB 2.0 Extension with LPM NOT supported.
+ * Prevents Linux from attempting L1 power-state transitions. */
+static const uint8_t bos_desc_raw[] = {
+    /* BOS Header */
+    0x05,                   /* bLength */
+    0x0F,                   /* bDescriptorType: BOS */
+    0x0C, 0x00,             /* wTotalLength: 12 */
+    0x01,                   /* bNumDeviceCaps: 1 */
+
+    /* USB 2.0 Extension Device Capability */
+    0x07,                   /* bLength */
+    0x10,                   /* bDescriptorType: DEVICE_CAPABILITY */
+    0x02,                   /* bDevCapabilityType: USB 2.0 Extension */
+    0x00, 0x00, 0x00, 0x00, /* bmAttributes: bit1=0 → LPM not supported */
+};
+
+static const struct usb_bos_descriptor bos_desc = {
+    .string     = bos_desc_raw,
+    .string_len = sizeof(bos_desc_raw),
+};
+
 static const struct usb_descriptor usb_desc = {
     .device_descriptor_callback          = desc_device_cb,
     .config_descriptor_callback          = desc_config_cb,
@@ -538,7 +559,7 @@ static const struct usb_descriptor usb_desc = {
     .msosv1_descriptor                   = NULL,
     .msosv2_descriptor                   = NULL,
     .webusb_url_descriptor               = NULL,
-    .bos_descriptor                      = NULL,
+    .bos_descriptor                      = &bos_desc,
 };
 
 /* Gamepad interface / endpoints */
@@ -865,6 +886,8 @@ int usb_gamepad_init(usb_gamepad_output_cb_t output_cb)
         volatile uint32_t *dev_ctl = (volatile uint32_t *)(USB_BASE + 0x100);
         uint32_t v = *dev_ctl;
         v |= (1 << 2);  /* USB_GLINT_EN_HOV */
+        v &= ~(1 << 25); /* Clear USB_LPM_EN — refuse L1 power state */
+        v &= ~(1 << 26); /* Clear USB_LPM_ACCEPT — NYET all LPM requests */
         *dev_ctl = v;
     }
 
