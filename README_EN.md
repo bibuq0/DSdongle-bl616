@@ -90,7 +90,6 @@ The USB side presents DualSense-compatible HID descriptors (auto-switching betwe
 | Scanning | Fast blink (~3Hz) |
 | Connected | Solid |
 | Just disconnected | Blink (~1Hz) for ~3s, then back to idle slow blink |
-| Battery ≤20% (discharging) | Medium blink (~1.7Hz) |
 | Battery ≤10% (discharging) | Fast blink (~3Hz) |
 | Auto-off | Off after 1 minute (on by default; battery warnings unaffected) |
 | Event acknowledge | Single flash |

@@ -54,7 +54,6 @@ static QueueHandle_t output_queue;
 static volatile bool ds5_connected = false;
 static volatile bool ever_connected = false;
 static volatile bool battery_low = false;
-static volatile bool battery_warn = false;
 static volatile bool bt_init_done = false;
 
 static volatile uint8_t cached_battery_level = 0xFF;
@@ -484,7 +483,6 @@ static void on_hid_state(enum bt_hid_host_state state)
         ds5_connected = true;
         ever_connected = true;
         battery_low = false;
-        battery_warn = false;
         primer_resend_us = bflb_mtimer_get_time_us();
         usb_wake_on_bt_connect();
         conn_led_start_us = bflb_mtimer_get_time_us();
@@ -832,8 +830,6 @@ static void bt_task(void *arg)
                 if (ds5_connected) {
                     if (battery_low)
                         led_status_set(LED_BLINK_BATTERY);
-                    else if (battery_warn)
-                        led_status_set(LED_BLINK_BATTERY_WARN);
                     else
                         led_status_set(LED_GREEN_SOLID);
                     LOG_DBG("[LED-DBG] toggle OFF: restored green, conn=1\n");
@@ -1151,7 +1147,7 @@ static void usb_task(void *arg)
                     inactive_disconnected = false;
                 }
 
-                /* Battery monitoring: <=10% red blink, <=20% yellow blink */
+                /* Battery monitoring: <=10% red blink */
                 uint8_t batt = raw_report[2 + DS5_BATT_BYTE_OFFSET];
                 uint8_t pct  = batt & DS5_BATT_LEVEL_MASK;
                 uint8_t st   = (batt >> DS5_BATT_STATE_SHIFT) & 0x0F;
@@ -1162,21 +1158,13 @@ static void usb_task(void *arg)
                 cached_battery_state = st;
                 bool discharging = (st == DS5_BATT_STATE_DISCHARGE);
                 bool is_low  = discharging && (pct <= DS5_BATT_LOW_THRESHOLD);
-                bool is_warn = discharging && !is_low &&
-                               (pct <= DS5_BATT_WARN_THRESHOLD);
 
                 if (is_low && !battery_low) {
                     battery_low = true;
-                    battery_warn = false;
                     led_status_set(LED_BLINK_BATTERY);
                     LOG_WRN("[MAIN] Battery critical (%d%%)\n", pct * 10);
-                } else if (is_warn && !battery_warn && !battery_low) {
-                    battery_warn = true;
-                    led_status_set(LED_BLINK_BATTERY_WARN);
-                    LOG_WRN("[MAIN] Battery warning (%d%%)\n", pct * 10);
-                } else if (!is_low && !is_warn && (battery_low || battery_warn)) {
+                } else if (!is_low && battery_low) {
                     battery_low = false;
-                    battery_warn = false;
                     if (config_led_disabled() && conn_led_off)
                         led_status_set(LED_OFF);
                     else

@@ -63,7 +63,6 @@ static void all_off(void)
     set_white(false);
 }
 
-static void set_yellow(bool on) { set_blue(false); set_red(on); set_green(on); }
 static void set_purple(bool on) { set_green(false); set_red(on); set_blue(on); }
 
 void led_status_init(void)
@@ -103,9 +102,6 @@ void led_status_set(enum led_pattern pattern)
         break;
     case LED_BLINK_BATTERY:
         set_red(true);
-        break;
-    case LED_BLINK_BATTERY_WARN:
-        set_yellow(true);
         break;
     default:
         break;
@@ -175,17 +171,6 @@ void led_status_tick(void)
         }
         break;
 
-    case LED_BLINK_BATTERY_WARN:
-        if (tick_count >= BLINK_BATT_PERIOD) {
-            tick_count = 0;
-            bool next = !green_on;
-            set_blue(false);
-            set_green(next);
-            set_red(next);
-        } else if (green_on) {
-            set_red(!red_on);
-        }
-        break;
     }
 }
 
@@ -269,9 +254,6 @@ void led_status_set(enum led_pattern pattern)
     case LED_BLINK_BATTERY:
         set_led0(true);
         break;
-    case LED_BLINK_BATTERY_WARN:
-        set_led0(true);
-        break;
     default:
         break;
     }
@@ -343,12 +325,6 @@ void led_status_tick(void)
         }
         break;
 
-    case LED_BLINK_BATTERY_WARN:
-        if (tick_count >= BLINK_BATT_PERIOD) {
-            tick_count = 0;
-            set_led0(!led0_on);
-        }
-        break;
     }
 }
 
@@ -405,7 +381,6 @@ void led_status_set(enum led_pattern pattern)
     case LED_PURPLE_BLINK_FAST:
     case LED_RED_BLINK:
     case LED_BLINK_BATTERY:
-    case LED_BLINK_BATTERY_WARN:
         set_led(true);
         break;
     case LED_GREEN_SOLID:
@@ -480,12 +455,6 @@ void led_status_tick(void)
         }
         break;
 
-    case LED_BLINK_BATTERY_WARN:
-        if (tick_count >= BLINK_BATT_PERIOD) {
-            tick_count = 0;
-            set_led(!led_on);
-        }
-        break;
     }
 }
 
