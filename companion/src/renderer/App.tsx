@@ -437,7 +437,6 @@ function Usage(): React.JSX.Element {
           <li>{t('usage.led.fast')}</li>
           <li>{t('usage.led.solid')}</li>
           <li>{t('usage.led.disconnect')}</li>
-          <li>{t('usage.led.low')}</li>
           <li>{t('usage.led.critical')}</li>
           <li>{t('usage.led.off')}</li>
           <li>{t('usage.led.triple')}</li>

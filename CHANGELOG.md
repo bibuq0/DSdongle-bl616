@@ -8,6 +8,7 @@ All notable changes to DS5Dongle BL618 firmware are documented here.
 
 ### Changed
 - **移除 ≤20% 电量 LED 提醒**：接收器在电量 ≤20%（放电中）时不再切换 warning 闪烁，仅保留 ≤10% critical 快闪；删除 `battery_warn` 逻辑与 `LED_BLINK_BATTERY_WARN` 模式（`main.c` / `led_status.c` / `led_status.h` / `ds5_protocol.h`），README（中/英）同步更新
+- **伴生应用**：使用说明页（usage）删除"中速闪：电量 ≤20%"（`usage.led.low` 中英文文案与渲染行），仅保留 ≤10% 快速闪说明
 - 重新编译双版本固件并重新打包安装包
 
 ---
