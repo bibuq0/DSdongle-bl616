@@ -629,7 +629,7 @@ function Lighting({
   );
   return (
     <div className="feature-card-grid">
-      <Card title={t('lighting.color')} subtitle={t('lighting.colorHint')}>
+      <Card title={t('lighting.color')} subtitle={t('lighting.colorHint') + ' · ' + t('system.replugHint')}>
         <Row label={t('lighting.color')}>
           <input
             type="color"
