@@ -53,7 +53,6 @@ static QueueHandle_t input_queue;
 static QueueHandle_t output_queue;
 static volatile bool ds5_connected = false;
 static volatile bool ever_connected = false;
-static volatile bool battery_low = false;
 static volatile bool bt_init_done = false;
 
 static volatile uint8_t cached_battery_level = 0xFF;
@@ -369,7 +368,6 @@ static void on_hid_state(enum bt_hid_host_state state)
         }
         if (ds5_connected) {
             ds5_connected = false;
-            battery_low = false;
             cached_battery_level = 0xFF;
             cached_battery_state = 0;
             uint8_t neutral[DS5_USB_INPUT_PAYLOAD_LEN];
@@ -482,7 +480,6 @@ static void on_hid_state(enum bt_hid_host_state state)
 
         ds5_connected = true;
         ever_connected = true;
-        battery_low = false;
         primer_resend_us = bflb_mtimer_get_time_us();
         usb_wake_on_bt_connect();
         conn_led_start_us = bflb_mtimer_get_time_us();
@@ -828,10 +825,7 @@ static void bt_task(void *arg)
             } else {
                 conn_led_off = false;
                 if (ds5_connected) {
-                    if (battery_low)
-                        led_status_set(LED_BLINK_BATTERY);
-                    else
-                        led_status_set(LED_GREEN_SOLID);
+                    led_status_set(LED_GREEN_SOLID);
                     LOG_DBG("[LED-DBG] toggle OFF: restored green, conn=1\n");
                 } else {
                     enum bt_hid_host_state s = bt_hid_host_get_state();
@@ -1147,7 +1141,7 @@ static void usb_task(void *arg)
                     inactive_disconnected = false;
                 }
 
-                /* Battery monitoring: <=10% red blink */
+                /* Battery level/state —— forwarded to host via feature 0xF9 (no LED feedback) */
                 uint8_t batt = raw_report[2 + DS5_BATT_BYTE_OFFSET];
                 uint8_t pct  = batt & DS5_BATT_LEVEL_MASK;
                 uint8_t st   = (batt >> DS5_BATT_STATE_SHIFT) & 0x0F;
@@ -1156,20 +1150,6 @@ static void usb_task(void *arg)
                 else
                     cached_battery_level = (pct > 10) ? 100 : pct * 10;
                 cached_battery_state = st;
-                bool discharging = (st == DS5_BATT_STATE_DISCHARGE);
-                bool is_low  = discharging && (pct <= DS5_BATT_LOW_THRESHOLD);
-
-                if (is_low && !battery_low) {
-                    battery_low = true;
-                    led_status_set(LED_BLINK_BATTERY);
-                    LOG_WRN("[MAIN] Battery critical (%d%%)\n", pct * 10);
-                } else if (!is_low && battery_low) {
-                    battery_low = false;
-                    if (config_led_disabled() && conn_led_off)
-                        led_status_set(LED_OFF);
-                    else
-                        led_status_set(LED_GREEN_SOLID);
-                }
 
                 uint8_t inact_min = config_inactive_minutes();
                 if (inact_min > 0 && !inactive_disconnected && !usb_audio_is_active()) {

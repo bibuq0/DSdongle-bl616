@@ -4,6 +4,15 @@ All notable changes to DS5Dongle BL618 firmware are documented here.
 
 ---
 
+## v3.19.2 - 2026-08-27
+
+### Changed
+- **彻底移除低电量 LED 提示功能**：≤10% critical 快闪一并移除（≤20% 已在上版移除），接收器 LED 不再有任何电量告警；电量百分比/状态仍经 feature 0xF9 上报应用显示
+- **伴生应用**：usage 说明页删除"快速闪：电量 ≤10%"，仅保留 LED 常规状态说明
+- 重新编译双版本固件并重新打包安装包
+
+---
+
 ## v3.19.1 - 2026-08-27
 
 ### Changed

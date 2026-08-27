@@ -50,7 +50,6 @@
 #define DS5_BATT_STATE_DISCHARGE  0x00
 #define DS5_BATT_STATE_CHARGING   0x01
 #define DS5_BATT_STATE_COMPLETE   0x02
-#define DS5_BATT_LOW_THRESHOLD    1    /* PowerPercent <= 1 → ≤ 10% */
 
 #define DS5_BTN_PS_BYTE           9    /* offset in 63-byte USB payload */
 #define DS5_BTN_PS_BIT            0x01
