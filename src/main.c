@@ -319,6 +319,20 @@ static void send_led_primer(void)
     uint8_t buf[DS5_BT_OUTPUT_EXT_SIZE];
     build_bt_output_ext(merged, DS5_USB_OUTPUT_PAYLOAD_LEN, buf);
     bt_hid_host_send_output(buf, DS5_BT_OUTPUT_EXT_SIZE);
+
+    /* Player-LED battery gauge follow-up frame (0x31): after a fast
+     * reconnect the controller may drop the player-LED bits from the 0x32
+     * primer or the host re-init frame may clear them.  A dedicated frame
+     * carrying only AllowPlayerIndicators + the battery mask guarantees the
+     * battery gauge lights up again, independent of lightbar colour. */
+    {
+        uint8_t pl[DS5_USB_OUTPUT_PAYLOAD_LEN];
+        memset(pl, 0, sizeof(pl));
+        apply_player_led_battery(pl);
+        uint8_t pl_out[DS5_BT_OUTPUT_REPORT_SIZE];
+        build_bt_output(pl, DS5_USB_OUTPUT_PAYLOAD_LEN, 0, pl_out);
+        bt_hid_host_send_output(pl_out, DS5_BT_OUTPUT_REPORT_SIZE);
+    }
 }
 
 /* Called from l2cap_intr_connected (earliest possible moment, pre-HANDSHAKE).
