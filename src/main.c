@@ -28,7 +28,7 @@
 #include <string.h>
 
 #define BT_TASK_STACK_SIZE    12288
-#define BT_TASK_PRIORITY      (configMAX_PRIORITIES - 2)
+#define BT_TASK_PRIORITY      (configMAX_PRIORITIES - 3)
 #define USB_TASK_STACK_SIZE   6144
 #define USB_TASK_PRIORITY     (configMAX_PRIORITIES - 1)
 #define STACK_WORDS(bytes) \
@@ -36,9 +36,9 @@
 #define AUDIO_TASK_STACK_SIZE STACK_WORDS(1024*32)
 #define AUDIO_TASK_PRIORITY   (configMAX_PRIORITIES - 2)
 #define MIC_TASK_STACK_SIZE   4096
-#define MIC_TASK_PRIORITY     (configMAX_PRIORITIES - 3)
+#define MIC_TASK_PRIORITY     (configMAX_PRIORITIES - 4)
 #define LED_TASK_STACK_SIZE   512
-#define LED_TASK_PRIORITY     (configMAX_PRIORITIES - 4)
+#define LED_TASK_PRIORITY     (tskIDLE_PRIORITY + 1)
 #define BOOT_HOLD_TICKS      30   /* 30 x 100ms = 3 seconds */
 #define BOOT_CLICK_WINDOW    5    /* 500ms window between clicks */
 #define RECONNECT_TIMEOUT_MS 2000
@@ -897,6 +897,9 @@ static void bt_task(void *arg)
                     if (stealth_primer_countdown == 0) {
                         LOG_INF("[MAIN] Stealth: primer fired, forwarding starts\n");
                         send_led_primer();
+                        /* Re-arm the 300ms resend so the custom LED color is
+                         * reliably applied after a fast reconnect. */
+                        primer_resend_us = bflb_mtimer_get_time_us();
                     } else {
                         LOG_INF("[MAIN] Stealth: holding BT forward, countdown=%d\n",
                                 (int)stealth_primer_countdown);
@@ -1103,6 +1106,7 @@ static void usb_task(void *arg)
 
         TickType_t wait = pdMS_TO_TICKS(10);
         if (xQueueReceive(input_queue, raw_report, wait) == pdTRUE) {
+            uint64_t frame_start_us = bflb_mtimer_get_time_us();
             last_input_us = bflb_mtimer_get_time_us();
             usb_fwd_count++;
             if (usb_fwd_count == 1)
@@ -1220,6 +1224,28 @@ static void usb_task(void *arg)
                     } else if (ps_was_pressed) {
                         ps_was_pressed = false;
                         ps_debounced = false;
+                    }
+                }
+
+                /* Probe: per-frame processing time + effective input rate. */
+                {
+                    static uint64_t frm_total_us = 0;
+                    static uint32_t frm_count = 0;
+                    static uint64_t frm_win_start_us = 0;
+                    uint64_t now_us = bflb_mtimer_get_time_us();
+                    if (frm_count == 0 && frm_win_start_us == 0)
+                        frm_win_start_us = now_us;
+                    frm_total_us += now_us - frame_start_us;
+                    if (++frm_count >= 500) {
+                        uint64_t win_us = now_us - frm_win_start_us;
+                        uint32_t avg_proc = (uint32_t)(frm_total_us / frm_count);
+                        uint32_t rate_hz = (win_us > 0)
+                            ? (uint32_t)((500ULL * 1000000ULL) / win_us) : 0;
+                        LOG_INF("[USB-MON] 500 frames: avg=%luus rate=%luHz\n",
+                                (unsigned long)avg_proc, (unsigned long)rate_hz);
+                        frm_total_us = 0;
+                        frm_count = 0;
+                        frm_win_start_us = now_us;
                     }
                 }
             }

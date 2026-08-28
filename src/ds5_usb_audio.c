@@ -225,8 +225,12 @@ static void audio_ep_out_handler(uint8_t busid, uint8_t ep, uint32_t nbytes)
     (void)ep;
 
     if (nbytes == 0 || !stream_active) {
-        if (stream_active)
-            usbd_ep_start_read(busid, USB_AUDIO_EP_OUT, iso_rx_buf, sizeof(iso_rx_buf));
+        if (stream_active) {
+            int r = usbd_ep_start_read(busid, USB_AUDIO_EP_OUT,
+                                       iso_rx_buf, sizeof(iso_rx_buf));
+            if (r < 0)
+                LOG_ERR("[AUDIO] ep start_read fail=%d\n", r);
+        }
         return;
     }
 
@@ -418,6 +422,8 @@ bool usb_audio_is_active(void)
 
 void usb_audio_stop(void)
 {
+    if (stream_active)
+        LOG_INF("[AUDIO] usb_audio_stop\n");
     stream_active = false;
     pcm_write_pos = 0;
     pcm_write_idx = 0;

@@ -62,6 +62,7 @@ static uint8_t  packet_counter;
 static volatile bool plug_headset;
 static volatile bool mic_enabled;   /* host opened mic interface AND config allows */
 static volatile bool mic_status_pending;  /* deferred: send 0x32 to controller */
+static int  encoder_force_channels;
 
 static QueueHandle_t mic_queue;
 
@@ -152,14 +153,36 @@ static void resample_512_480(const int16_t *in, int16_t *out)
         int32_t sum_l = (1 << 14);  /* +0.5 LSB rounding bias before >>15 */
         int32_t sum_r = (1 << 14);
 
-        for (int t = 0; t < SINC_TAPS; t++) {
-            int idx = center + t - (SINC_HALF_TAPS - 1);
-            if (idx < 0) idx = 0;
-            if (idx >= HALF_ACCUM) idx = HALF_ACCUM - 1;
+        if (center >= SINC_HALF_TAPS - 1 &&
+            center <= HALF_ACCUM - SINC_HALF_TAPS - 1) {
+            /* Interior samples: fully inside the block, unroll all taps. */
+            const int16_t *s = in +
+                (center - (SINC_HALF_TAPS - 1)) * 2;
+#define RESAMP_TAP(t) do { \
+                int16_t coeff = c[(t)]; \
+                sum_l += (int32_t)s[(t) * 2] * coeff; \
+                sum_r += (int32_t)s[(t) * 2 + 1] * coeff; \
+            } while (0)
+            RESAMP_TAP(0);
+            RESAMP_TAP(1);
+            RESAMP_TAP(2);
+            RESAMP_TAP(3);
+            RESAMP_TAP(4);
+            RESAMP_TAP(5);
+            RESAMP_TAP(6);
+            RESAMP_TAP(7);
+#undef RESAMP_TAP
+        } else {
+            /* Block edges: clamp indices instead. */
+            for (int t = 0; t < SINC_TAPS; t++) {
+                int idx = center + t - (SINC_HALF_TAPS - 1);
+                if (idx < 0) idx = 0;
+                if (idx >= HALF_ACCUM) idx = HALF_ACCUM - 1;
 
-            int16_t coeff = c[t];
-            sum_l += (int32_t)in[idx * 2]     * coeff;
-            sum_r += (int32_t)in[idx * 2 + 1] * coeff;
+                int16_t coeff = c[t];
+                sum_l += (int32_t)in[idx * 2]     * coeff;
+                sum_r += (int32_t)in[idx * 2 + 1] * coeff;
+            }
         }
 
         int32_t l = sum_l >> 15;
@@ -345,6 +368,9 @@ int audio_init(void)
     opus_encoder_ctl(encoder, OPUS_SET_VBR(0));
     opus_encoder_ctl(encoder, OPUS_SET_COMPLEXITY(0));
     opus_encoder_ctl(encoder, OPUS_SET_FORCE_MODE_REQUEST, (opus_int32)MODE_CELT_ONLY);
+    /* Start mono (lower CPU); switch to stereo when a headset is plugged. */
+    opus_encoder_ctl(encoder, OPUS_SET_FORCE_CHANNELS(1));
+    encoder_force_channels = 1;
 
     decoder = (OpusDecoder *)decoder_mem;
     err = opus_decoder_init(decoder, 48000, MIC_CHANNELS);
@@ -429,6 +455,21 @@ void audio_task(void *arg)
                 static int16_t hap_raw[HALF_ACCUM * 2];
 
                 bool speaker_on = !config_get()->disable_speaker;
+
+                /* Switch Opus channel count dynamically: mono by default
+                 * (lower CPU), stereo only while a 3.5mm headset is plugged. */
+                int target_channels = plug_headset ? 2 : 1;
+                if (target_channels != encoder_force_channels) {
+                    int ctl_err = opus_encoder_ctl(
+                        encoder, OPUS_SET_FORCE_CHANNELS(target_channels));
+                    if (ctl_err == OPUS_OK) {
+                        encoder_force_channels = target_channels;
+                    } else {
+                        LOG_ERR("[AUDIO] Opus force %s failed: %d\n",
+                                target_channels == 1 ? "mono" : "stereo",
+                                ctl_err);
+                    }
+                }
 
                 for (int slot = 0; slot < 2; slot++) {
                     if (slot == 1)
