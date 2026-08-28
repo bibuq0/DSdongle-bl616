@@ -157,11 +157,11 @@ static void resample_512_480(const int16_t *in, int16_t *out)
             center <= HALF_ACCUM - SINC_HALF_TAPS - 1) {
             /* Interior samples: fully inside the block, unroll all taps. */
             const int16_t *s = in +
-                (center - (SINC_HALF_TAPS - 1)) * 2;
+                (center - (SINC_HALF_TAPS - 1)) * USB_AUDIO_CHANNELS;
 #define RESAMP_TAP(t) do { \
                 int16_t coeff = c[(t)]; \
-                sum_l += (int32_t)s[(t) * 2] * coeff; \
-                sum_r += (int32_t)s[(t) * 2 + 1] * coeff; \
+                sum_l += (int32_t)s[(t) * USB_AUDIO_CHANNELS] * coeff; \
+                sum_r += (int32_t)s[(t) * USB_AUDIO_CHANNELS + 1] * coeff; \
             } while (0)
             RESAMP_TAP(0);
             RESAMP_TAP(1);
@@ -180,8 +180,8 @@ static void resample_512_480(const int16_t *in, int16_t *out)
                 if (idx >= HALF_ACCUM) idx = HALF_ACCUM - 1;
 
                 int16_t coeff = c[t];
-                sum_l += (int32_t)in[idx * 2]     * coeff;
-                sum_r += (int32_t)in[idx * 2 + 1] * coeff;
+                sum_l += (int32_t)in[idx * USB_AUDIO_CHANNELS]     * coeff;
+                sum_r += (int32_t)in[idx * USB_AUDIO_CHANNELS + 1] * coeff;
             }
         }
 
@@ -217,9 +217,9 @@ static void decimate_haptics(const int16_t *in, int8_t *out, uint32_t in_samples
     }
 
     for (uint32_t i = 0; i < out_pairs; i++) {
-        uint32_t idx = (i * HAPTIC_DECIMATE) * 2;
-        int32_t val_l = in[idx];
-        int32_t val_r = in[idx + 1];
+        uint32_t idx = (i * HAPTIC_DECIMATE) * USB_AUDIO_CHANNELS;
+        int32_t val_l = in[idx + 2];
+        int32_t val_r = in[idx + 3];
         val_l = (val_l * gain_fp) >> 16;
         val_r = (val_r * gain_fp) >> 16;
         if (val_l > 127) val_l = 127;
@@ -451,9 +451,6 @@ void audio_task(void *arg)
                 usb_audio_read(pcm_block) &&
                 bt_hid_host_get_state() == BT_HID_STATE_CONNECTED)
             {
-                static int16_t spk_raw[HALF_ACCUM * 2];
-                static int16_t hap_raw[HALF_ACCUM * 2];
-
                 bool speaker_on = !config_get()->disable_speaker;
 
                 /* Switch Opus channel count dynamically: mono by default
@@ -472,23 +469,13 @@ void audio_task(void *arg)
                 }
 
                 for (int slot = 0; slot < 2; slot++) {
-                    if (slot == 1)
-                        taskYIELD();
+                    const int16_t *slot_pcm =
+                        &pcm_block[(uint32_t)slot * HALF_ACCUM * USB_AUDIO_CHANNELS];
 
-                    const uint32_t base = (uint32_t)slot * HALF_ACCUM;
-
-                    for (uint32_t i = 0; i < HALF_ACCUM; i++) {
-                        uint32_t src = base + i;
-                        spk_raw[i * 2]     = pcm_block[src * USB_AUDIO_CHANNELS];
-                        spk_raw[i * 2 + 1] = pcm_block[src * USB_AUDIO_CHANNELS + 1];
-                        hap_raw[i * 2]     = pcm_block[src * USB_AUDIO_CHANNELS + 2];
-                        hap_raw[i * 2 + 1] = pcm_block[src * USB_AUDIO_CHANNELS + 3];
-                    }
-
-                    decimate_haptics(hap_raw, haptic_slots[slot], HALF_ACCUM);
+                    decimate_haptics(slot_pcm, haptic_slots[slot], HALF_ACCUM);
 
                     if (speaker_on) {
-                        resample_512_480(spk_raw, spk_resamp);
+                        resample_512_480(slot_pcm, spk_resamp);
                         encode_start_us = bflb_mtimer_get_time_us();
                         encoding_in_progress = true;
                         int encoded = opus_encode(encoder, spk_resamp, OPUS_FRAME_SAMPLES,
@@ -513,10 +500,17 @@ void audio_task(void *arg)
 
                 if (send_audio_report() != 0) {
                     send_fail_streak++;
-                    if (send_fail_streak >= AUDIO_SEND_FAIL_MAX)
+                    if (send_fail_streak >= AUDIO_SEND_FAIL_MAX) {
+                        LOG_ERR("[AUDIO] %u consecutive send failures, "
+                                "forcing disconnect\n",
+                                (unsigned)send_fail_streak);
+                        send_fail_streak = 0;
+                        bt_hid_host_disconnect();
+                    } else if (send_fail_streak > 3) {
                         vTaskDelay(pdMS_TO_TICKS(20));
-                    else
+                    } else {
                         vTaskDelay(1);
+                    }
                 } else {
                     send_fail_streak = 0;
                 }

@@ -10,7 +10,7 @@ All notable changes to DS5Dongle BL618 firmware are documented here.
 - **移植 master(v3.18) 性能/调度优化**：任务优先级对齐（BT `MAX-2→MAX-3`、MIC `MAX-3→MAX-4`、LED→`tskIDLE+1`，让 USB 任务获得更多时间片）；Opus 编码**动态单声道**（默认 1ch，插入 3.5mm 耳机切 2ch，降低 CPU 负载）；重采样 512→480 改用 **8 抽头宏展开 + 边界分支**优化
 - **移植快速重连 LED 修复**：stealth primer 触发后重置 300ms `primer_resend_us`，确保快速重连后自定义灯条颜色可靠生效
 - **移植零碎容错**：USB 音频 ISO 端点重 arm `usbd_ep_start_read` 失败日志、`usb_audio_stop` 日志
-- 保留 `[USB-MON]` 每帧耗时/速率探针（每 500 帧输出 `avg/rate`），便于验证性能；重新编译双版本固件并重新打包安装包
+- 重新编译双版本固件并重新打包安装包
 
 ---
 
