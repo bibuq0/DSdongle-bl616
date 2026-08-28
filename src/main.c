@@ -897,9 +897,6 @@ static void bt_task(void *arg)
                     if (stealth_primer_countdown == 0) {
                         LOG_INF("[MAIN] Stealth: primer fired, forwarding starts\n");
                         send_led_primer();
-                        /* Re-arm the 300ms resend so the custom LED color is
-                         * reliably applied after a fast reconnect. */
-                        primer_resend_us = bflb_mtimer_get_time_us();
                     } else {
                         LOG_INF("[MAIN] Stealth: holding BT forward, countdown=%d\n",
                                 (int)stealth_primer_countdown);
