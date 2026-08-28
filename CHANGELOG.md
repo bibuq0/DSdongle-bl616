@@ -10,6 +10,7 @@ All notable changes to DS5Dongle BL618 firmware are documented here.
 - **移植 master(v3.18) 性能/调度优化**：任务优先级对齐（BT `MAX-2→MAX-3`、MIC `MAX-3→MAX-4`、LED→`tskIDLE+1`，让 USB 任务获得更多时间片）；Opus 编码**动态单声道**（默认 1ch，插入 3.5mm 耳机切 2ch，降低 CPU 负载）；重采样 512→480 改用 **8 抽头宏展开 + 边界分支**优化
 - **移植零碎容错**：USB 音频 ISO 端点重 arm `usbd_ep_start_read` 失败日志、`usb_audio_stop` 日志
 - **补移植 Opus E907 优化**：`lib/opus/celt/vq.c` 的 `exp_rotation1`（CELT 量化旋转热点）改用 E907 打包乘加（`pkbb16`/`kmda`），进一步降低编码 CPU 占用
+- **Opus 迁入 SRAM/TCM 执行**：`CMakeLists.txt` 对齐 master——Opus 编译为独立 `libopuscodec` 库（`-O3 -fbuiltin -fno-lto -fjump-tables`），linker 注入把 Opus 代码+热表放进 TCM，大幅降低编码耗时；另加 `CONFIG_BT_RX_PRIO=5`（BT 输入抢占音频编码）、`audio.c` 单独 `-O3`。RAM 占用 172KB → 290KB（415KB 总量内安全）
 - 重新编译双版本固件并重新打包安装包
 
 ---
