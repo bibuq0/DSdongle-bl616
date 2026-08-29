@@ -19,7 +19,7 @@
 
 - BT Classic HID Host：Inquiry、SDP、L2CAP、SSP 自动配对
 - 完整输入透传：摇杆、按键、扳机、陀螺仪、加速度计、触摸板、电量
-- 完整输出透传：震动、RGB 灯条、玩家指示灯、自适应扳机
+- 完整输出转发（合并快照 + 震动变化即时直发）：震动、RGB 灯条、玩家指示灯、自适应扳机
 - 双向音频透传：UAC1 4ch 48kHz OUT → Opus 编码 → BT 0x39 双帧报告（547B，扬声器/耳机）；BT 麦克风 Opus → 解码 → UAC1 2ch 48kHz IN
 - HD 触觉反馈：USB Audio Ch2/Ch3 → 16:1 降采样 → BT 0x92 触觉 tag
 - DualSense Edge 支持：自动识别 → unlock 握手 → profile 预取，PID 自动切换（0DF2）
@@ -29,7 +29,7 @@
 - PS 快捷键：短按 → Win+G，长按 → Win+Tab
 - 轮询率可配置：250Hz / 500Hz / 实时档（~750Hz）
 - 按键映射：任意按键重映射，含 **D-pad 四方向**（共 19 个可映射按键）
-- USB 远程唤醒、USB 隐身模式、USB 序列号（eFuse）、扳机电机功率限制、音量锁定、LED 自动熄灭、电量告警、玩家灯电量显示（0-25% 1 颗 / 26-50% 2 颗 / 51-75% 3 颗 / 76-100% 4 颗）
+- USB 远程唤醒、USB 隐身模式、USB 序列号（eFuse）、扳机电机功率限制、音量锁定、LED 自动熄灭、玩家灯电量显示（0-25% 1 颗 / 26-50% 2 颗 / 51-75% 3 颗 / 76-100% 4 颗）
 - 多语言伴生应用（Windows）：简体中文 / English，深色 / 浅色主题
 
 ### Windows 伴生应用（DS5 Dongle）
@@ -72,7 +72,7 @@ USB 端提供 DualSense 兼容的 HID 描述符（DS 与 Edge 自动切换），
 | 摇杆 / 按键 / 扳机 | HID Input 透传 | 是 |
 | 陀螺仪 / 加速度计 | HID Input 透传 | 是 |
 | 触摸板 | HID Input 透传 | 是 |
-| 电池电量 | HID Input 透传 | 是（另有板载 LED 低电量告警） |
+| 电池电量 | HID Input 透传 | 是（电量经 feature 0xF9 上报应用显示；接收器 LED 无电量告警） |
 | **自适应扳机** | HID Output SetStateData | 是 |
 | **震动** | HID Output SetStateData | 是 |
 | RGB 灯条 / 玩家指示灯 | HID Output SetStateData | 是 |
@@ -186,14 +186,14 @@ LCTech BL616 支持两种刷写方式：
 
 ```
 src/
-├── main.c              入口 + FreeRTOS 任务编排 + 数据桥接
+├── main.c              入口 + FreeRTOS 任务编排 + 输出合并快照 / 震动即时通道 + 数据桥接
 ├── bt_hid_host.c/h     BT Classic HID Host（Inquiry + SDP + L2CAP + SSP）
 ├── ds5_protocol.c/h    DualSense 协议定义 + CRC32
 ├── usb_gamepad.c/h     USB 复合设备（Gamepad + Boot Keyboard）
 ├── ds5_usb_audio.c/h   USB Audio Class 1（4ch 48kHz ISO OUT + 2ch 48kHz ISO IN）
 ├── audio.c/h           音频处理管线（sinc 重采样 + Opus 编解码 + 触觉 + 麦克风）
 ├── usb_wake.c/h        USB 远程唤醒 FSM
-├── state_mgr.c/h       SetStateData 条件合并管理器
+├── state_mgr.c/h       SetStateData 状态管理（primer / 音量同步 / 音量锁）
 ├── config.c/h          配置系统（bt_settings + 0xF6-0xF9）
 ├── dse.c/h             DualSense Edge Profile 管理
 ├── remap.c/h           按键映射（含 D-pad 四方向，共 19 键）
@@ -221,7 +221,7 @@ firmware/               板级烧录配置 + 本地编译产物（二进制已 g
 **数据流：**
 
 - **输入（手柄 → 主机）**：BT L2CAP 接收 Report 0x31 → 剥离 HID header/seq/CRC → 63 字节 payload 作为 USB Report 0x01 发送
-- **输出（主机 → 手柄）**：USB EP OUT 接收 Report 0x02 → State Manager 条件合并 → BT Report 0x31（78B 含 CRC32）→ L2CAP 发送
+- **输出（主机 → 手柄）**：USB EP OUT 接收 Report 0x02 → 按 Allow 标志合入 47B 合并快照（震动马达/选择位变化则原样即时直发，不依赖合并）→ BT Report 0x31（78B 含 CRC32）→ L2CAP 发送
 - **音频输出（主机 → 手柄）**：USB Audio ISO OUT（4ch 48kHz）→ 双缓冲 PCM 累积 → polyphase sinc 重采样 512→480 → Opus CBR 编码（160kbps）→ 触觉降采样 → 0x39 双帧报告（547B）→ L2CAP 发送
 - **音频输入（手柄 → 主机）**：BT 0x31 麦克风 Opus 帧 → 队列 → Opus 解码（48kHz 单声道）→ 单声道转立体声 → 环形缓冲 → USB Audio ISO IN（2ch 48kHz）
 - **Feature（双向）**：GET_REPORT 从 BT 侧缓存返回（DSE profile 支持 NAK gating）| SET_REPORT 附加 CRC32 后经 L2CAP 控制通道转发

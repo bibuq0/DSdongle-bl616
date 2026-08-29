@@ -19,7 +19,7 @@ A wireless DualSense controller adapter firmware for the **LCTech BL616** board.
 
 - BT Classic HID Host: inquiry, SDP, L2CAP, SSP auto-pairing
 - Full input passthrough: sticks, buttons, triggers, gyro, accelerometer, touchpad, battery
-- Full output passthrough: rumble, RGB light bar, player indicators, adaptive triggers
+- Full output forwarding (merged snapshot + immediate rumble changes): rumble, RGB light bar, player indicators, adaptive triggers
 - Bidirectional audio: UAC1 4ch 48kHz OUT → Opus encode → BT 0x39 dual-frame report (547B, speaker/headset); BT mic Opus → decode → UAC1 2ch 48kHz IN
 - HD haptics: USB Audio Ch2/Ch3 → 16:1 decimation → BT 0x92 haptic tag
 - DualSense Edge support: auto-detect → unlock handshake → profile prefetch, PID auto-switch (0DF2)
@@ -29,7 +29,7 @@ A wireless DualSense controller adapter firmware for the **LCTech BL616** board.
 - PS shortcut: short press → Win+G, long press → Win+Tab
 - Configurable polling rate: 250Hz / 500Hz / real-time (~750Hz)
 - Button remap including all four D-pad directions (19 remappable inputs)
-- USB remote wakeup, USB stealth mode, USB serial (eFuse), trigger motor reduction, volume lock, LED auto-off, battery alerts
+- USB remote wakeup, USB stealth mode, USB serial (eFuse), trigger motor reduction, volume lock, LED auto-off, player-LED battery gauge (0-25% 1 / 26-50% 2 / 51-75% 3 / 76-100% 4 LEDs)
 - Multilingual Windows companion app: Simplified Chinese / English, dark / light themes
 
 ### Windows Companion App (DS5 Dongle)
@@ -72,7 +72,7 @@ The USB side presents DualSense-compatible HID descriptors (auto-switching betwe
 | Sticks / Buttons / Triggers | HID Input passthrough | Yes |
 | Gyro / Accelerometer | HID Input passthrough | Yes |
 | Touchpad | HID Input passthrough | Yes |
-| Battery level | HID Input passthrough | Yes (+ on-board LED low-battery alert) |
+| Battery level | HID Input passthrough | Yes (battery reported to the app via feature 0xF9; no on-board LED alert) |
 | **Adaptive triggers** | HID Output SetStateData | Yes |
 | **Rumble** | HID Output SetStateData | Yes |
 | RGB light bar / Player LEDs | HID Output SetStateData | Yes |
@@ -184,14 +184,14 @@ Settings persist via `bt_settings` and are read/written over USB Feature Reports
 
 ```
 src/
-├── main.c              Entry + FreeRTOS task orchestration + data bridge
+├── main.c              Entry + FreeRTOS task orchestration + output merged snapshot / immediate rumble channel + data bridge
 ├── bt_hid_host.c/h     BT Classic HID Host (Inquiry + SDP + L2CAP + SSP)
 ├── ds5_protocol.c/h    DualSense protocol definitions + CRC32
 ├── usb_gamepad.c/h     USB composite device (Gamepad + Boot Keyboard)
 ├── ds5_usb_audio.c/h   USB Audio Class 1 (4ch 48kHz ISO OUT + 2ch 48kHz ISO IN)
 ├── audio.c/h           Audio pipeline (sinc resample + Opus encode/decode + haptics + mic)
 ├── usb_wake.c/h        USB remote wakeup FSM
-├── state_mgr.c/h       SetStateData conditional merge manager
+├── state_mgr.c/h       SetStateData state management (primer / volume sync / volume lock)
 ├── config.c/h          Configuration system (bt_settings + 0xF6-0xF9)
 ├── dse.c/h             DualSense Edge profile management
 ├── remap.c/h           Button remap (incl. D-pad directions, 19 keys)
@@ -219,7 +219,7 @@ firmware/               Board flash configs + local build output (binaries git-i
 **Data flows:**
 
 - **Input (Controller → Host)**: BT L2CAP receives Report 0x31 → strip HID header/seq/CRC → 63-byte payload sent as USB Report 0x01
-- **Output (Host → Controller)**: USB EP OUT receives Report 0x02 → State Manager conditional merge → BT Report 0x31 (78B with CRC32) → L2CAP send
+- **Output (Host → Controller)**: USB EP OUT receives Report 0x02 → merged into a 47-byte snapshot by Allow flags (rumble motor/selector changes are sent immediately as the raw frame, independent of merging) → BT Report 0x31 (78B with CRC32) → L2CAP send
 - **Audio OUT (Host → Controller)**: USB Audio ISO OUT (4ch 48kHz) → double-buffer PCM accumulation → polyphase sinc resample 512→480 → Opus CBR encode (160kbps) → haptics decimation → 0x39 dual-frame report (547B) → L2CAP send
 - **Audio IN (Controller → Host)**: BT 0x31 mic Opus frame → queue → Opus decode (48kHz mono) → mono-to-stereo → ring buffer → USB Audio ISO IN (2ch 48kHz)
 - **Feature (bidirectional)**: GET_REPORT from BT-side cache (DSE profiles support NAK gating) | SET_REPORT adds CRC32 and forwards via L2CAP control channel
