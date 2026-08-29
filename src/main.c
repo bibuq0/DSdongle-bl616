@@ -280,9 +280,70 @@ static void cache_output_state(const uint8_t *set_state_data)
     }
 }
 
+/* ---- Merged USB→BT output snapshot (aligns with DS5_Bridge) ----
+ * USB output frames are merged into a persistent 47-byte snapshot by their
+ * Allow flags; the full snapshot is sent to BT only when it changed.  This
+ * guarantees a "release trigger / Off" frame can never be lost in a burst,
+ * and deduplicates identical maintenance frames (less BT load). */
+static uint8_t g_out_merged[DS5_USB_OUTPUT_PAYLOAD_LEN];
+static uint8_t g_out_sent[DS5_USB_OUTPUT_PAYLOAD_LEN];
+static bool    g_out_merged_valid = false;
+
+static void output_merge_frame(uint8_t *m, const uint8_t *u)
+{
+    uint8_t f0 = u[0];
+    uint8_t f1 = u[1];
+
+    /* Allow flags accumulate — the merged snapshot always carries them. */
+    m[0] |= f0;
+    m[1] |= f1;
+
+    if (f0 & 0x03) { m[2] = u[2]; m[3] = u[3]; }      /* rumble motors */
+    if (f0 & 0x04) memcpy(m + 10, u + 10, 11);        /* right trigger FFB */
+    if (f0 & 0x08) memcpy(m + 21, u + 21, 11);        /* left trigger FFB */
+    if (f0 & 0x10) m[4] = u[4];                       /* headset volume */
+    if (f0 & 0x20) m[5] = u[5];                       /* speaker volume */
+    if (f0 & 0x40) m[6] = u[6];                       /* mic volume */
+    if (f0 & 0x80) m[7] = u[7];                       /* audio control */
+    if (f1 & 0x01) m[8] = u[8];                       /* mute light */
+    if (f1 & 0x02) m[9] = u[9];                       /* audio mute */
+    if (f1 & 0x04) {                                  /* lightbar color */
+        m[41] = u[41]; m[42] = u[42];
+        m[44] = u[44]; m[45] = u[45]; m[46] = u[46];
+    }
+    if (f1 & 0x10) m[43] = u[43];                     /* player indicators */
+    if (f1 & 0x20) m[39] = u[39];                     /* haptic low-pass */
+    if (f1 & 0x40) m[36] = u[36];                     /* motor power level */
+    if (f1 & 0x80) m[37] = u[37];                     /* audio control 2 */
+    memcpy(m + 32, u + 32, 4);                        /* host timestamp */
+    m[38] = u[38];
+    m[40] = u[40];
+}
+
+static void output_flush_merged(void)
+{
+    if (!g_out_merged_valid)
+        return;
+    if (memcmp(g_out_merged, g_out_sent, DS5_USB_OUTPUT_PAYLOAD_LEN) == 0)
+        return;   /* unchanged snapshot — nothing new for the controller */
+
+    memcpy(g_out_sent, g_out_merged, DS5_USB_OUTPUT_PAYLOAD_LEN);
+    apply_config_overlay(g_out_sent, DS5_USB_OUTPUT_PAYLOAD_LEN);
+    apply_player_led_battery(g_out_sent);
+    cache_output_state(g_out_sent);
+
+    uint8_t bt_out[DS5_BT_OUTPUT_REPORT_SIZE];
+    build_bt_output(g_out_sent, DS5_USB_OUTPUT_PAYLOAD_LEN, output_seq, bt_out);
+    output_seq = (output_seq + 1) & 0x0F;
+    bt_hid_host_send_output(bt_out, DS5_BT_OUTPUT_REPORT_SIZE);
+}
+
 /* Send the 0x32 LED primer — shared by primer_cb and reconnect handler */
 static void send_led_primer(void)
 {
+    /* Force the next forwarded output to be sent fresh after a reconnect:
+     * the controller must see the current merged snapshot, not only primer. */
+    g_out_merged_valid = false;
     state_mgr_init(init_set_state, DS5_USB_OUTPUT_PAYLOAD_LEN);
     struct config_body *cfg = config_get();
     state_mgr_apply_config(cfg->speaker_volume, cfg->headset_volume,
@@ -870,19 +931,13 @@ static void bt_task(void *arg)
             }
 
             if (state_mgr_is_spk_active()) {
-                /* Pass-through output forwarding (matches DS5Dongle):
-                 * Each USB output frame is independently forwarded to BT with
-                 * only config overlays applied - no flag accumulation or merging. */
+                /* Merged output forwarding (aligns with DS5_Bridge):
+                 * merge by Allow flags, send the snapshot only when changed. */
                 while (xQueueReceive(output_queue, usb_out, 0) == pdTRUE) {
-                    uint8_t *payload = usb_out + 1;
-                    apply_config_overlay(payload, DS5_USB_OUTPUT_PAYLOAD_LEN);
-                    apply_player_led_battery(payload);
-                    cache_output_state(payload);
-                    uint8_t bt_out[DS5_BT_OUTPUT_REPORT_SIZE];
-                    build_bt_output(payload, DS5_USB_OUTPUT_PAYLOAD_LEN,
-                                    output_seq, bt_out);
-                    output_seq = (output_seq + 1) & 0x0F;
-                    bt_hid_host_send_output(bt_out, DS5_BT_OUTPUT_REPORT_SIZE);
+                    const uint8_t *payload = usb_out + 1;
+                    output_merge_frame(g_out_merged, payload);
+                    g_out_merged_valid = true;
+                    output_flush_merged();
                 }
                 vTaskDelay(pdMS_TO_TICKS(16));
             } else if (xQueueReceive(output_queue, usb_out, pdMS_TO_TICKS(16)) == pdTRUE) {
@@ -904,14 +959,9 @@ static void bt_task(void *arg)
                     goto next_output_iter;
                 }
 
-                apply_config_overlay(payload, DS5_USB_OUTPUT_PAYLOAD_LEN);
-                apply_player_led_battery(payload);
-                cache_output_state(payload);
-                uint8_t bt_out[DS5_BT_OUTPUT_REPORT_SIZE];
-                build_bt_output(payload, DS5_USB_OUTPUT_PAYLOAD_LEN,
-                                output_seq, bt_out);
-                output_seq = (output_seq + 1) & 0x0F;
-                bt_hid_host_send_output(bt_out, DS5_BT_OUTPUT_REPORT_SIZE);
+                output_merge_frame(g_out_merged, payload);
+                g_out_merged_valid = true;
+                output_flush_merged();
 next_output_iter:;
             }
             idle_ticks = 0;
