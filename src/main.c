@@ -345,12 +345,61 @@ static void output_flush_merged(void)
     bt_hid_host_send_output(bt_out, DS5_BT_OUTPUT_REPORT_SIZE);
 }
 
+/* ---- Immediate rumble channel (aligns with DS5_Bridge) ----
+ * The DualSense keys "stop" off BOTH the motor bytes and the rumble
+ * selector flags (flags0 bit0/bit1, flags2 bit0/bit1).  The merged
+ * snapshot accumulates allow-flags (|=), which would pin the selector
+ * forever and keep the controller vibrating even after the host clears
+ * it.  So any change to motor bytes OR selector bits is sent IMMEDIATELY
+ * as the raw frame, bypassing snapshot dedup — a "stop" frame (selector
+ * cleared and/or motors -> 0) can never be delayed or skipped. */
+static uint8_t g_last_rumble_r = 0;
+static uint8_t g_last_rumble_l = 0;
+static uint8_t g_last_rumble_sel0 = 0;   /* flags0 & 0x03 */
+static uint8_t g_last_rumble_sel2 = 0;   /* flags2(u[19]) & 0x03 */
+static bool    g_last_rumble_valid = false;
+
+static bool rumble_frame_changed(const uint8_t *u)
+{
+    if (!g_last_rumble_valid)
+        return true;
+    return u[2] != g_last_rumble_r
+        || u[3] != g_last_rumble_l
+        || (u[0] & 0x03) != g_last_rumble_sel0
+        || (u[19] & 0x03) != g_last_rumble_sel2;
+}
+
+static void output_send_immediate(const uint8_t *u)
+{
+    /* Ship the raw frame right now, with only the usual overlays. */
+    uint8_t sent[DS5_USB_OUTPUT_PAYLOAD_LEN];
+    memcpy(sent, u, DS5_USB_OUTPUT_PAYLOAD_LEN);
+    apply_config_overlay(sent, DS5_USB_OUTPUT_PAYLOAD_LEN);
+    apply_player_led_battery(sent);
+    cache_output_state(sent);
+
+    uint8_t bt_out[DS5_BT_OUTPUT_REPORT_SIZE];
+    build_bt_output(sent, DS5_USB_OUTPUT_PAYLOAD_LEN, output_seq, bt_out);
+    output_seq = (output_seq + 1) & 0x0F;
+    bt_hid_host_send_output(bt_out, DS5_BT_OUTPUT_REPORT_SIZE);
+
+    g_last_rumble_r = u[2];
+    g_last_rumble_l = u[3];
+    g_last_rumble_sel0 = u[0] & 0x03;
+    g_last_rumble_sel2 = u[19] & 0x03;
+    g_last_rumble_valid = true;
+
+    /* Keep dedup coherent: the controller now holds at least this state. */
+    memcpy(g_out_sent, g_out_merged, DS5_USB_OUTPUT_PAYLOAD_LEN);
+}
+
 /* Send the 0x32 LED primer — shared by primer_cb and reconnect handler */
 static void send_led_primer(void)
 {
     /* Force the next forwarded output to be sent fresh after a reconnect:
      * the controller must see the current merged snapshot, not only primer. */
     g_out_merged_valid = false;
+    g_last_rumble_valid = false;
     state_mgr_init(init_set_state, DS5_USB_OUTPUT_PAYLOAD_LEN);
     struct config_body *cfg = config_get();
     state_mgr_apply_config(cfg->speaker_volume, cfg->headset_volume,
@@ -944,7 +993,10 @@ static void bt_task(void *arg)
                     const uint8_t *payload = usb_out + 1;
                     output_merge_frame(g_out_merged, payload);
                     g_out_merged_valid = true;
-                    output_flush_merged();
+                    if (rumble_frame_changed(payload))
+                        output_send_immediate(payload);
+                    else
+                        output_flush_merged();
                 }
                 vTaskDelay(pdMS_TO_TICKS(16));
             } else if (xQueueReceive(output_queue, usb_out, pdMS_TO_TICKS(16)) == pdTRUE) {
@@ -968,7 +1020,10 @@ static void bt_task(void *arg)
 
                 output_merge_frame(g_out_merged, payload);
                 g_out_merged_valid = true;
-                output_flush_merged();
+                if (rumble_frame_changed(payload))
+                    output_send_immediate(payload);
+                else
+                    output_flush_merged();
 next_output_iter:;
             }
             idle_ticks = 0;
