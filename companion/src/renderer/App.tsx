@@ -835,7 +835,7 @@ function System({
   return (
     <div className="feature-card-grid">
       <Card title={t('system.controller')}>
-        <Row label={t('system.controllerMode')} hint={t('system.controllerModeHint') + ' · ' + t('system.replugHint')}>
+        <Row label={t('system.controllerMode')} hint={t('system.controllerModeHint') + '(' + t('system.replugHint') + ')'}>
           <select
             value={config.controllerMode}
             onChange={(event) => apply({ controllerMode: Number(event.target.value) })}
@@ -845,7 +845,7 @@ function System({
             <option value={CONTROLLER_MODE.AUTO}>{CONTROLLER_MODE_LABELS[CONTROLLER_MODE.AUTO]}</option>
           </select>
         </Row>
-        <Row label={t('system.pollingRate')} hint={t('system.pollingRateHint') + ' · ' + t('system.replugHint')}>
+        <Row label={t('system.pollingRate')} hint={t('system.pollingRateHint') + '(' + t('system.replugHint') + ')'}>
           <select
             value={config.pollingRateMode}
             onChange={(event) => apply({ pollingRateMode: Number(event.target.value) })}
@@ -869,13 +869,13 @@ function System({
         <Row label={t('system.usbWake')} hint={t('system.replugHint')}>
           <Toggle value={config.enableWake} onChange={(value) => apply({ enableWake: value })} />
         </Row>
-        <Row label={t('system.usbStealth')} hint={t('system.usbStealthHint') + ' · ' + t('system.replugHint')}>
+        <Row label={t('system.usbStealth')} hint={t('system.usbStealthHint') + '(' + t('system.replugHint') + ')'}>
           <Toggle value={config.usbStealth} onChange={(value) => apply({ usbStealth: value })} />
         </Row>
-        <Row label={t('system.usbSerial')} hint={t('system.usbSerialHint') + ' · ' + t('system.replugHint')}>
+        <Row label={t('system.usbSerial')} hint={t('system.usbSerialHint') + '(' + t('system.replugHint') + ')'}>
           <Toggle value={config.enableUsbSn} onChange={(value) => apply({ enableUsbSn: value })} />
         </Row>
-        <Row label={t('system.psShortcut')} hint={t('system.psShortcutHint') + ' · ' + t('system.replugHint')}>
+        <Row label={t('system.psShortcut')} hint={t('system.psShortcutHint') + '(' + t('system.replugHint') + ')'}>
           <Toggle
             value={config.psShortcutEnabled}
             onChange={(value) => apply({ psShortcutEnabled: value })}
