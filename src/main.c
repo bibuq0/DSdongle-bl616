@@ -1151,6 +1151,25 @@ static void usb_task(void *arg)
                     cached_battery_level = (pct > 10) ? 100 : pct * 10;
                 cached_battery_state = st;
 
+                /* Player-LED battery gauge: send a standalone indicator frame
+                 * whenever the battery mask changes.  Standalone (no lightbar
+                 * colour flags) so the controller always honours it — the
+                 * merged forward frames carry AllowLedColor which makes the
+                 * controller skip the player-LED bits (stuck at the reconnect
+                 * primer value / off). */
+                {
+                    static uint8_t last_pl_mask = 0xFF;
+                    uint8_t pl[DS5_USB_OUTPUT_PAYLOAD_LEN] = {0};
+                    apply_player_led_battery(pl);   /* byte43 mask + flags1 bit4 */
+                    uint8_t pl_mask = pl[43];
+                    if (pl_mask != last_pl_mask) {
+                        last_pl_mask = pl_mask;
+                        uint8_t pl_out[DS5_BT_OUTPUT_REPORT_SIZE];
+                        build_bt_output(pl, DS5_USB_OUTPUT_PAYLOAD_LEN, 0, pl_out);
+                        bt_hid_host_send_output(pl_out, DS5_BT_OUTPUT_REPORT_SIZE);
+                    }
+                }
+
                 uint8_t inact_min = config_inactive_minutes();
                 if (inact_min > 0 && !inactive_disconnected && !usb_audio_is_active()) {
                     uint64_t elapsed_us = bflb_mtimer_get_time_us() - last_activity_us;
