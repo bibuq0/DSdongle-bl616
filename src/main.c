@@ -282,11 +282,9 @@ static void cache_output_state(const uint8_t *set_state_data)
 
 /* ---- Merged USB→BT output snapshot (aligns with DS5_Bridge) ----
  * USB output frames are merged into a persistent 47-byte snapshot by their
- * Allow flags; the full snapshot is sent to BT only when it changed.  This
- * guarantees a "release trigger / Off" frame can never be lost in a burst,
- * and deduplicates identical maintenance frames (less BT load). */
+ * Allow flags; the full snapshot is sent to BT after every frame so a
+ * "release trigger / Off" frame can never be lost in a burst. */
 static uint8_t g_out_merged[DS5_USB_OUTPUT_PAYLOAD_LEN];
-static uint8_t g_out_sent[DS5_USB_OUTPUT_PAYLOAD_LEN];
 static bool    g_out_merged_valid = false;
 
 static void output_merge_frame(uint8_t *m, const uint8_t *u)
@@ -331,16 +329,18 @@ static void output_flush_merged(void)
 {
     if (!g_out_merged_valid)
         return;
-    if (memcmp(g_out_merged, g_out_sent, DS5_USB_OUTPUT_PAYLOAD_LEN) == 0)
-        return;   /* unchanged snapshot — nothing new for the controller */
 
-    memcpy(g_out_sent, g_out_merged, DS5_USB_OUTPUT_PAYLOAD_LEN);
-    apply_config_overlay(g_out_sent, DS5_USB_OUTPUT_PAYLOAD_LEN);
-    apply_player_led_battery(g_out_sent);
-    cache_output_state(g_out_sent);
+    /* No dedup: every frame is forwarded (matches the old pass-through
+     * sending behavior).  Work on a local copy so the merged snapshot
+     * stays raw for the next merge. */
+    uint8_t tx[DS5_USB_OUTPUT_PAYLOAD_LEN];
+    memcpy(tx, g_out_merged, DS5_USB_OUTPUT_PAYLOAD_LEN);
+    apply_config_overlay(tx, DS5_USB_OUTPUT_PAYLOAD_LEN);
+    apply_player_led_battery(tx);
+    cache_output_state(tx);
 
     uint8_t bt_out[DS5_BT_OUTPUT_REPORT_SIZE];
-    build_bt_output(g_out_sent, DS5_USB_OUTPUT_PAYLOAD_LEN, output_seq, bt_out);
+    build_bt_output(tx, DS5_USB_OUTPUT_PAYLOAD_LEN, output_seq, bt_out);
     output_seq = (output_seq + 1) & 0x0F;
     bt_hid_host_send_output(bt_out, DS5_BT_OUTPUT_REPORT_SIZE);
 }
@@ -388,18 +388,16 @@ static void output_send_immediate(const uint8_t *u)
     g_last_rumble_sel0 = u[0] & 0x03;
     g_last_rumble_sel2 = u[19] & 0x03;
     g_last_rumble_valid = true;
-
-    /* Keep dedup coherent: the controller now holds at least this state. */
-    memcpy(g_out_sent, g_out_merged, DS5_USB_OUTPUT_PAYLOAD_LEN);
 }
 
 /* Send the 0x32 LED primer — shared by primer_cb and reconnect handler */
 static void send_led_primer(void)
 {
-    /* Force the next forwarded output to be sent fresh after a reconnect:
-     * the controller must see the current merged snapshot, not only primer. */
-    g_out_merged_valid = false;
-    g_last_rumble_valid = false;
+    /* Note: output-tracking reset (g_out_merged_valid / g_last_rumble_valid)
+     * is deliberately NOT done here — send_led_primer can be called from
+     * BT-stack callbacks (primer_cb, on_hid_state), which would race with
+     * the bt_task forwarding loop.  The reset lives in the bt_task
+     * not-connected branch instead. */
     state_mgr_init(init_set_state, DS5_USB_OUTPUT_PAYLOAD_LEN);
     struct config_body *cfg = config_get();
     state_mgr_apply_config(cfg->speaker_volume, cfg->headset_volume,
@@ -1028,6 +1026,12 @@ next_output_iter:;
             }
             idle_ticks = 0;
         } else {
+            /* Not connected: clear forwarding/reset tracking here (bt_task
+             * context only — never from BT-stack callbacks).  After a
+             * reconnect the first frame is therefore always sent fresh. */
+            g_out_merged_valid = false;
+            g_last_rumble_valid = false;
+
             vTaskDelay(pdMS_TO_TICKS(100));
             idle_ticks++;
 
