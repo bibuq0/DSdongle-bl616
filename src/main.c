@@ -298,7 +298,14 @@ static void output_merge_frame(uint8_t *m, const uint8_t *u)
     m[0] |= f0;
     m[1] |= f1;
 
-    if (f0 & 0x03) { m[2] = u[2]; m[3] = u[3]; }      /* rumble motors */
+    /* Rumble motors are applied unconditionally (no Allow gate): DualSense
+     * keys off the motor bytes themselves, so a stop frame (motors -> 0)
+     * must reach the snapshot even when the host sends it without Allow
+     * flags — otherwise the merged snapshot keeps re-sending the old
+     * rumble value and the controller vibrates forever (aligns with
+     * DS5_Bridge's immediate rumble channel). */
+    m[2] = u[2];
+    m[3] = u[3];
     if (f0 & 0x04) memcpy(m + 10, u + 10, 11);        /* right trigger FFB */
     if (f0 & 0x08) memcpy(m + 21, u + 21, 11);        /* left trigger FFB */
     if (f0 & 0x10) m[4] = u[4];                       /* headset volume */
