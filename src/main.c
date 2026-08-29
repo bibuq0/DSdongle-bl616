@@ -1175,6 +1175,13 @@ static void usb_task(void *arg)
                                   usb_wake_on_resume,
                                   usb_wake_on_configured);
 
+    /* Player-LED reconnect edge detection.  Polled every loop (decoupled
+     * from input reports): during a BT disconnect there are no reports, so
+     * an input-driven prev flag would never observe the disconnect and the
+     * false→true edge on reconnect would be lost. */
+    static bool pl_prev_connected = false;
+    static bool pl_force_resend = false;
+
     /* Pico-style USB gating: keep USB disconnected until the controller
      * is connected via BT, so Windows/Steam re-enumerate and re-initialize
      * the controller on every reboot/reconnect (restores trigger state). */
@@ -1215,6 +1222,17 @@ static void usb_task(void *arg)
                    (unsigned long)*glb_int);
         }
         usb_gamepad_process_deferred();
+
+        /* Poll the reconnect edge here, every loop, regardless of input
+         * reports (see the declaration above).  prev always tracks the
+         * current link state, so a disconnect is observed even while no
+         * input reports arrive. */
+        {
+            bool pl_now_connected = ds5_connected;
+            if (pl_now_connected && !pl_prev_connected)
+                pl_force_resend = true;   /* reconnect: force gauge re-send */
+            pl_prev_connected = pl_now_connected;
+        }
 
         /* Connection watchdog: if connected and we've received at least one
          * report, but then nothing for 3s → controller likely powered off.
@@ -1287,12 +1305,11 @@ static void usb_task(void *arg)
                  * needs the gauge re-sent even when the mask is unchanged. */
                 {
                     static uint8_t last_pl_mask = 0xFF;
-                    static bool pl_prev_connected = false;
                     static uint8_t pl_seq = 0;
-                    bool pl_now_connected = ds5_connected;
-                    if (pl_now_connected && !pl_prev_connected)
+                    if (pl_force_resend) {
+                        pl_force_resend = false;
                         last_pl_mask = 0xFF;    /* force re-send on reconnect */
-                    pl_prev_connected = pl_now_connected;
+                    }
 
                     uint8_t pl[DS5_USB_OUTPUT_PAYLOAD_LEN] = {0};
                     apply_player_led_battery(pl);   /* byte43 mask + flags1 bit4 */
