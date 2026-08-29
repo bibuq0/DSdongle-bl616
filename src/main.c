@@ -429,7 +429,12 @@ static void send_led_primer(void)
             memcpy(merged + 10 + 11, cached_trigger_l, 11);
     }
 
-    apply_player_led_battery(merged);
+    /* Deliberately NO apply_player_led_battery here: primer must stay a
+     * pure LED-init frame ([1]=0x04 ONLY).  Splicing AllowPlayerIndicators
+     * into it makes the controller treat it as a regular game output, and
+     * the lightbar color is then only applied half the time on reconnects.
+     * The player-LED battery gauge is re-sent by the standalone frame in
+     * usb_task (forced right after every reconnect). */
 
     uint8_t buf[DS5_BT_OUTPUT_EXT_SIZE];
     build_bt_output_ext(merged, DS5_USB_OUTPUT_PAYLOAD_LEN, buf);
@@ -1028,9 +1033,14 @@ next_output_iter:;
         } else {
             /* Not connected: clear forwarding/reset tracking here (bt_task
              * context only — never from BT-stack callbacks).  After a
-             * reconnect the first frame is therefore always sent fresh. */
+             * reconnect the first frame is therefore always sent fresh.
+             * Also wipe the merged snapshot: output_merge_frame only
+             * accumulates (|= allow flags, overwrite allowed fields), so a
+             * stale snapshot would re-send the previous session's lightbar
+             * color / animation as part of the first post-reconnect frame. */
             g_out_merged_valid = false;
             g_last_rumble_valid = false;
+            memset(g_out_merged, 0, sizeof(g_out_merged));
 
             vTaskDelay(pdMS_TO_TICKS(100));
             idle_ticks++;
@@ -1272,16 +1282,26 @@ static void usb_task(void *arg)
                  * colour flags) so the controller always honours it — the
                  * merged forward frames carry AllowLedColor which makes the
                  * controller skip the player-LED bits (stuck at the reconnect
-                 * primer value / off). */
+                 * primer value / off).  Forced again right after every
+                 * reconnect (connection edge), since a fresh controller start
+                 * needs the gauge re-sent even when the mask is unchanged. */
                 {
                     static uint8_t last_pl_mask = 0xFF;
+                    static bool pl_prev_connected = false;
+                    static uint8_t pl_seq = 0;
+                    bool pl_now_connected = ds5_connected;
+                    if (pl_now_connected && !pl_prev_connected)
+                        last_pl_mask = 0xFF;    /* force re-send on reconnect */
+                    pl_prev_connected = pl_now_connected;
+
                     uint8_t pl[DS5_USB_OUTPUT_PAYLOAD_LEN] = {0};
                     apply_player_led_battery(pl);   /* byte43 mask + flags1 bit4 */
                     uint8_t pl_mask = pl[43];
                     if (pl_mask != last_pl_mask) {
                         last_pl_mask = pl_mask;
                         uint8_t pl_out[DS5_BT_OUTPUT_REPORT_SIZE];
-                        build_bt_output(pl, DS5_USB_OUTPUT_PAYLOAD_LEN, 0, pl_out);
+                        build_bt_output(pl, DS5_USB_OUTPUT_PAYLOAD_LEN, pl_seq, pl_out);
+                        pl_seq = (pl_seq + 1) & 0x0F;
                         bt_hid_host_send_output(pl_out, DS5_BT_OUTPUT_REPORT_SIZE);
                     }
                 }
