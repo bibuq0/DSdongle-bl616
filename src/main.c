@@ -247,18 +247,6 @@ static void apply_player_led_battery(uint8_t *d)
     d[1] |= 0x10;               /* flags1 bit4: AllowPlayerIndicators */
 }
 
-static bool trigger_effect_off(const uint8_t *eff)
-{
-    /* DualSense trigger effect is off when the mode byte is 0x00
-     * (TriggerEffectModeOff) or the whole 11-byte block is zeroed. */
-    if (eff[0] == 0x00)
-        return true;
-    for (int i = 0; i < 11; i++)
-        if (eff[i])
-            return false;
-    return true;
-}
-
 /* Called from the output forwarding path to snapshot game state
  * whenever the game sends a report with relevant flags set. */
 static void cache_output_state(const uint8_t *set_state_data)
@@ -271,15 +259,10 @@ static void cache_output_state(const uint8_t *set_state_data)
     if (f0 & 0x04) {
         cached_trigger_flags |= 0x04;
         memcpy(cached_trigger_r, set_state_data + 10, 11);
-    } else if (trigger_effect_off(set_state_data + 10)) {
-        /* Explicit Off → never replay a stale firing configuration. */
-        cached_trigger_flags &= ~0x04;
     }
     if (f0 & 0x08) {
         cached_trigger_flags |= 0x08;
         memcpy(cached_trigger_l, set_state_data + 21, 11);
-    } else if (trigger_effect_off(set_state_data + 21)) {
-        cached_trigger_flags &= ~0x08;
     }
 
     /* Cache LED color */
@@ -517,16 +500,6 @@ static void on_hid_state(enum bt_hid_host_state state)
  * Runs in USB interrupt context — only copy raw bytes, let bt_task
  * do the heavy lifting (CRC, BT report construction). */
 
-/* Feedback frames (rumble + adaptive trigger allows) must not be starved
- * by a full output queue, or the "release trigger" frame gets dropped and
- * the trigger keeps vibrating.  High-value frames skip to the queue head;
- * when full, drop an old low-value frame instead of the new feedback. */
-static inline bool output_frame_is_high_value(const uint8_t *msg)
-{
-    /* msg[1] = payload flags0: rumble(0x03) | L/R trigger allow(0x0C) */
-    return (msg[1] & 0x0F) != 0;
-}
-
 static void on_usb_output(const uint8_t *data, uint16_t len)
 {
     if (!ds5_connected || len < 2)
@@ -538,25 +511,14 @@ static void on_usb_output(const uint8_t *data, uint16_t len)
         memcpy(msg, data, copy);
         if (copy < USB_OUTPUT_BUF_SZ)
             memset(msg + copy, 0, USB_OUTPUT_BUF_SZ - copy);
-        bool high_value = output_frame_is_high_value(msg);
+        /* If queue full, drop oldest frame to make room (like DS5Dongle) */
         if (xQueueIsQueueFullFromISR(output_queue)) {
-            if (high_value) {
-                /* Pending feedback frames are more important than queued
-                 * low-value ones — drop the oldest to make room. */
-                uint8_t dummy[USB_OUTPUT_BUF_SZ];
-                xQueueReceiveFromISR(output_queue, dummy, NULL);
-                out_drop_count++;
-            } else {
-                /* Queue full and this is just a maintenance frame: skip it. */
-                out_drop_count++;
-                return;
-            }
+            uint8_t dummy[USB_OUTPUT_BUF_SZ];
+            xQueueReceiveFromISR(output_queue, dummy, NULL);
+            out_drop_count++;
         }
         out_isr_ts_us = bflb_mtimer_get_time_us();
-        if (high_value)
-            xQueueSendToFrontFromISR(output_queue, msg, NULL);
-        else
-            xQueueSendToBackFromISR(output_queue, msg, NULL);
+        xQueueSendToBackFromISR(output_queue, msg, NULL);
     }
 }
 
