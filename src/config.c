@@ -143,7 +143,15 @@ struct config_body *config_get(void)
 void config_set(const uint8_t *data, uint16_t len)
 {
     uint16_t copy_len = len < sizeof(cfg) ? len : sizeof(cfg);
+    /* Partial-update semantics on purpose: a short payload (older companion
+     * builds that predate tail-appended fields) only overwrites the leading
+     * bytes; the remaining fields keep their current runtime values instead
+     * of being reset, so legacy tools stay compatible. Full-size payloads
+     * replace the whole struct. config_validate() clamps each field. */
     memcpy(&cfg, data, copy_len);
     config_validate();
+    if (copy_len != sizeof(cfg))
+        LOG_WRN("[CFG] Partial config update: %d/%d bytes, tail fields kept\n",
+                copy_len, (int)sizeof(cfg));
     LOG_INF("[CFG] Updated from host (%d bytes)\n", copy_len);
 }

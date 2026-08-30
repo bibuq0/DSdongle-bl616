@@ -223,8 +223,9 @@ static void apply_config_overlay(uint8_t *d, uint16_t len)
                     cfg->headset_volume, cfg->speaker_volume, d[0]);
         }
     } else {
-        if (d[0] & 0x10) cfg->headset_volume = d[4];
-        if (d[0] & 0x20) cfg->speaker_volume = d[5];
+        /* lock off: host owns runtime volume. Do NOT write host frame volumes
+         * back into config — config volumes are persisted values owned by
+         * SET 0xF6 only (session/persist separation, see state_mgr_set_volume). */
     }
 }
 

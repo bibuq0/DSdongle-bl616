@@ -99,8 +99,10 @@ void state_mgr_set_volume(uint8_t spk_vol, uint8_t hp_vol)
     state[0] |= 0x30;
     state[4] = hp_vol;
     state[5] = spk_vol;
-    config_get()->headset_volume = hp_vol;
-    config_get()->speaker_volume = spk_vol;
+    /* Session-level only: UAC/host volume never writes back into config.
+     * config_body volumes are owned exclusively by SET 0xF6 (companion), so
+     * an unrelated config_save() can never persist a runtime volume, and
+     * after reboot volume falls back to the companion-configured value. */
     vol_dirty = true;
 }
 

@@ -1,5 +1,4 @@
 #include "remap.h"
-#include "usb_gamepad.h"
 #include "ds5_protocol.h"
 #include "debug_log.h"
 #include "easyflash.h"
@@ -55,8 +54,6 @@ static uint8_t dpad_dir_value(uint8_t id)
 
 static remap_entry_t g_remap[REMAP_BTN_COUNT];
 static bool g_remap_is_identity = true;
-/* Last keyboard report sent to host — used for change detection and key-up */
-static uint8_t last_kbd_report[8];
 
 /* ------------------------------------------------------------------ */
 /* Internal helpers                                                     */
@@ -102,7 +99,6 @@ static inline uint8_t get_src_bit(const uint8_t *p, int id)
 void remap_init(void)
 {
     remap_reset();
-    memset(last_kbd_report, 0, sizeof(last_kbd_report));
 }
 
 void remap_reset(void)
@@ -140,13 +136,27 @@ bool remap_save(void)
 
 void remap_set(const uint8_t *data, uint8_t len)
 {
-    if (len < REMAP_BTN_COUNT * sizeof(remap_entry_t))
+    /* Entry-granular partial update (legacy companion compatibility): a
+     * short table updates the leading entries; the rest reset to identity.
+     * Never copy a partial entry — len is truncated to whole entries. */
+    size_t n = len / sizeof(remap_entry_t);
+    if (n > REMAP_BTN_COUNT)
+        n = REMAP_BTN_COUNT;
+
+    if (n == 0) {
+        LOG_WRN("[REMAP] SET with %u bytes, too short, ignored\n", len);
         return;
+    }
+    if (n < REMAP_BTN_COUNT)
+        LOG_WRN("[REMAP] Partial table: %u/%u entries, rest reset to identity\n",
+                (unsigned)n, REMAP_BTN_COUNT);
 
-    memcpy(g_remap, data, REMAP_BTN_COUNT * sizeof(remap_entry_t));
+    memcpy(g_remap, data, n * sizeof(remap_entry_t));
 
-    for (int i = 0; i < REMAP_BTN_COUNT; i++)
+    for (size_t i = 0; i < n; i++)
         sanitize_entry(&g_remap[i], (uint8_t)i);
+    for (size_t i = n; i < REMAP_BTN_COUNT; i++)
+        g_remap[i] = (remap_entry_t){ REMAP_TYPE_BTN, (uint8_t)i, 0, 0 };
 
     update_identity_cache();
     LOG_INF("[REMAP] Table updated, identity=%d\n", (int)g_remap_is_identity);
@@ -180,12 +190,9 @@ void remap_apply(uint8_t *p)
     for (int i = 0; i < REMAP_BTN_COUNT; i++) {
         if (!src[i])
             continue;
-        if (g_remap[i].type == REMAP_TYPE_BTN) {
-            dst[g_remap[i].value] |= 1;
-        } else { /* REMAP_TYPE_KBD */
-            if (!(g_remap[i].flags & REMAP_FLAG_SUPPRESS))
-                dst[i] |= 1;  /* suppress=0: preserve gamepad bit */
-        }
+        /* REMAP_TYPE_BTN only — KBD remapping is disabled (entries are
+         * sanitized to BTN), so no keyboard branch here. */
+        dst[g_remap[i].value] |= 1;
     }
 
     /* L2/R2 symmetric analog swap */
@@ -248,22 +255,15 @@ void remap_apply(uint8_t *p)
 
 void remap_kbd_tick(const uint8_t *p)
 {
+    /* Keyboard mapping disabled — kept as a no-op for the main.c call site
+     * (single input path), so it stays trivial to re-enable later. */
     (void)p;
-    /* Keyboard mapping disabled — no keyboard interface in use */
 }
 
 void remap_on_disconnect(void)
 {
-    /* If keys were held when controller disconnected, send key-up to PC */
-    bool had_keys = (last_kbd_report[0] != 0);
-    for (int k = 2; !had_keys && k < 8; k++)
-        had_keys = (last_kbd_report[k] != 0);
-
-    if (had_keys && usb_gamepad_kbd_ready()) {
-        uint8_t zero[8] = { 0 };
-        usb_gamepad_send_kbd_report(zero, 8);
-    }
-    memset(last_kbd_report, 0, sizeof(last_kbd_report));
+    /* Nothing to do: keyboard remapping is disabled (no KBD targets, no
+     * last-report tracking). PS-shortcut key-up is handled in main.c. */
 }
 
 bool remap_has_kbd_targets(void)
