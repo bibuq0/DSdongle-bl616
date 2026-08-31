@@ -254,6 +254,12 @@ static void apply_player_led_battery(uint8_t *d)
  * LEDs), each forcing one gauge re-send from usb_task. */
 static volatile uint8_t pl_last_mask = 0xFF;
 static uint8_t pl_seq = 0;
+/* Delayed gauge re-send after a reconnect edge: the immediate send can be
+ * dropped while the controller is still finishing HID init (same reason
+ * primer re-sends 300ms later). Independent of input reports and of the
+ * stealth countdown. */
+#define PL_GAUGE_RESEND_DELAY_US (300ULL * 1000ULL)
+static uint64_t pl_force_resend_us = 0;
 
 /* Send the standalone player-LED battery gauge (flags1 bit4 + byte43 mask
  * only, no LED-color bits, so the controller always honours it).  Dedup on
@@ -1260,9 +1266,21 @@ static void usb_task(void *arg)
          * input reports arrive. */
         {
             bool pl_now_connected = ds5_connected;
+            uint64_t now_us = bflb_mtimer_get_time_us();
             if (pl_now_connected && !pl_prev_connected) {
-                pl_last_mask = 0xFF;   /* reconnect: force gauge re-send */
+                pl_last_mask = 0xFF;      /* reconnect: force gauge re-send */
+                pl_force_resend_us = now_us + PL_GAUGE_RESEND_DELAY_US;
                 LOG_INF("[MAIN] Player-LED gauge: reconnect edge, forcing re-send\n");
+            }
+            /* Delayed re-send: the immediate send right after connect may be
+             * dropped while the controller is still finishing HID init, so
+             * fire one more time once it is ready — independent of input
+             * reports and of the stealth countdown. */
+            if (pl_now_connected && pl_force_resend_us &&
+                now_us >= pl_force_resend_us) {
+                pl_force_resend_us = 0;
+                pl_last_mask = 0xFF;
+                LOG_INF("[MAIN] Player-LED gauge: delayed re-send\n");
             }
             pl_prev_connected = pl_now_connected;
             /* Send here, decoupled from BT input reports: a fresh or quiet
@@ -1429,6 +1447,17 @@ static void usb_task(void *arg)
         }
 
         usb_wake_task();
+
+        /* Stealth countdown drains only on host USB output frames.  With no
+         * host output (no Steam/game running) it would stay at 5 forever and
+         * block the deferred primer re-send below (and the player-LED gauge
+         * re-send that follows it).  Time it out so those still fire. */
+        if (ds5_connected && stealth_primer_countdown > 0 && primer_resend_us &&
+            (bflb_mtimer_get_time_us() - primer_resend_us) >
+                (PRIMER_RESEND_DELAY_US + 2000000ULL)) {
+            stealth_primer_countdown = 0;
+            LOG_INF("[MAIN] Stealth countdown timed out (no host output frames)\n");
+        }
 
         if (primer_resend_us && ds5_connected &&
             stealth_primer_countdown == 0 &&
