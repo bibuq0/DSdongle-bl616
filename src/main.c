@@ -248,6 +248,37 @@ static void apply_player_led_battery(uint8_t *d)
     d[1] |= 0x10;               /* flags1 bit4: AllowPlayerIndicators */
 }
 
+/* Player-LED gauge send state. pl_last_mask is cleared both by the
+ * reconnect edge detection and by the deferred primer re-send below
+ * (primer frames carry [43]=0 and may reset the controller's player
+ * LEDs), each forcing one gauge re-send from usb_task. */
+static volatile uint8_t pl_last_mask = 0xFF;
+static uint8_t pl_seq = 0;
+
+/* Send the standalone player-LED battery gauge (flags1 bit4 + byte43 mask
+ * only, no LED-color bits, so the controller always honours it).  Dedup on
+ * the mask, so it is safe to call from usb_task every loop — it only emits
+ * when the mask changes or a reconnect/primer cleared pl_last_mask. */
+static void send_player_led_gauge(void)
+{
+    if (!ds5_connected)
+        return;
+
+    uint8_t pl[DS5_USB_OUTPUT_PAYLOAD_LEN] = {0};
+    apply_player_led_battery(pl);
+    uint8_t pl_mask = pl[43];
+    if (pl_mask == pl_last_mask)
+        return;
+    pl_last_mask = pl_mask;
+
+    uint8_t pl_out[DS5_BT_OUTPUT_REPORT_SIZE];
+    build_bt_output(pl, DS5_USB_OUTPUT_PAYLOAD_LEN, pl_seq, pl_out);
+    pl_seq = (pl_seq + 1) & 0x0F;
+    bt_hid_host_send_output(pl_out, DS5_BT_OUTPUT_REPORT_SIZE);
+    LOG_INF("[MAIN] Player-LED gauge sent: mask=0x%02X (batt=%d)\n",
+            pl_mask, (int)cached_battery_level);
+}
+
 /* Called from the output forwarding path to snapshot game state
  * whenever the game sends a report with relevant flags set. */
 static void cache_output_state(const uint8_t *set_state_data)
@@ -1181,7 +1212,6 @@ static void usb_task(void *arg)
      * an input-driven prev flag would never observe the disconnect and the
      * false→true edge on reconnect would be lost. */
     static bool pl_prev_connected = false;
-    static bool pl_force_resend = false;
 
     /* Pico-style USB gating: keep USB disconnected until the controller
      * is connected via BT, so Windows/Steam re-enumerate and re-initialize
@@ -1230,9 +1260,16 @@ static void usb_task(void *arg)
          * input reports arrive. */
         {
             bool pl_now_connected = ds5_connected;
-            if (pl_now_connected && !pl_prev_connected)
-                pl_force_resend = true;   /* reconnect: force gauge re-send */
+            if (pl_now_connected && !pl_prev_connected) {
+                pl_last_mask = 0xFF;   /* reconnect: force gauge re-send */
+                LOG_INF("[MAIN] Player-LED gauge: reconnect edge, forcing re-send\n");
+            }
             pl_prev_connected = pl_now_connected;
+            /* Send here, decoupled from BT input reports: a fresh or quiet
+             * controller may not report for a while, so the reconnect gauge
+             * must not wait for one.  send_player_led_gauge() dedups on the
+             * mask, so this stays cheap between events. */
+            send_player_led_gauge();
         }
 
         /* Connection watchdog: if connected and we've received at least one
@@ -1296,33 +1333,11 @@ static void usb_task(void *arg)
                     cached_battery_level = (pct > 10) ? 100 : pct * 10;
                 cached_battery_state = st;
 
-                /* Player-LED battery gauge: send a standalone indicator frame
-                 * whenever the battery mask changes.  Standalone (no lightbar
-                 * colour flags) so the controller always honours it — the
-                 * merged forward frames carry AllowLedColor which makes the
-                 * controller skip the player-LED bits (stuck at the reconnect
-                 * primer value / off).  Forced again right after every
-                 * reconnect (connection edge), since a fresh controller start
-                 * needs the gauge re-sent even when the mask is unchanged. */
-                {
-                    static uint8_t last_pl_mask = 0xFF;
-                    static uint8_t pl_seq = 0;
-                    if (pl_force_resend) {
-                        pl_force_resend = false;
-                        last_pl_mask = 0xFF;    /* force re-send on reconnect */
-                    }
-
-                    uint8_t pl[DS5_USB_OUTPUT_PAYLOAD_LEN] = {0};
-                    apply_player_led_battery(pl);   /* byte43 mask + flags1 bit4 */
-                    uint8_t pl_mask = pl[43];
-                    if (pl_mask != last_pl_mask) {
-                        last_pl_mask = pl_mask;
-                        uint8_t pl_out[DS5_BT_OUTPUT_REPORT_SIZE];
-                        build_bt_output(pl, DS5_USB_OUTPUT_PAYLOAD_LEN, pl_seq, pl_out);
-                        pl_seq = (pl_seq + 1) & 0x0F;
-                        bt_hid_host_send_output(pl_out, DS5_BT_OUTPUT_REPORT_SIZE);
-                    }
-                }
+                /* Player-LED battery gauge: re-send whenever the battery
+                 * mask changes (dedup inside).  The reconnect-force lives in
+                 * the loop-top edge detection, decoupled from input reports;
+                 * primer re-sends also clear pl_last_mask to re-trigger. */
+                send_player_led_gauge();
 
                 uint8_t inact_min = config_inactive_minutes();
                 if (inact_min > 0 && !inactive_disconnected && !usb_audio_is_active()) {
@@ -1420,6 +1435,9 @@ static void usb_task(void *arg)
             (bflb_mtimer_get_time_us() - primer_resend_us) > PRIMER_RESEND_DELAY_US) {
             primer_resend_us = 0;
             send_led_primer();
+            /* Primer frames carry byte43=0; if the controller applies them
+             * to its player LEDs, re-trigger the battery gauge from usb_task. */
+            pl_last_mask = 0xFF;
         }
 
         dse_task();
