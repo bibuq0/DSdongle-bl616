@@ -103,8 +103,8 @@ describe('status report', () => {
 
 describe('firmware version report', () => {
   it('parses a version string and trims trailing NULs', () => {
-    const bytes = Array.from('LCT616-DS5 3.15', (char) => char.charCodeAt(0));
-    expect(parseFirmwareVersionReport(withReportId(REPORT_ID.FIRMWARE_VERSION, bytes))).toBe('LCT616-DS5 3.15');
+    const bytes = Array.from('LCT616-DS5 3.19.7', (char) => char.charCodeAt(0));
+    expect(parseFirmwareVersionReport(withReportId(REPORT_ID.FIRMWARE_VERSION, bytes))).toBe('LCT616-DS5 3.19.7');
   });
 
   it('returns "unknown" when empty', () => {

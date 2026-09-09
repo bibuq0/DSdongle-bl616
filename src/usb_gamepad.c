@@ -23,9 +23,9 @@
 
 #if defined(BOARD_LCTECH_616)
   #ifdef FORCE_FS_MODE
-    #define FIRMWARE_VERSION "LCT616-DS5 3.19"
+    #define FIRMWARE_VERSION "LCT616-DS5 3.19.7"
   #else
-    #define FIRMWARE_VERSION "LCT616-DS5 3.19H"
+    #define FIRMWARE_VERSION "LCT616-DS5 3.19.7H"
   #endif
 #elif defined(BOARD_M0S_DOCK)
 #define FIRMWARE_VERSION "M0S-DS5 3.5"
