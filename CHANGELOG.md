@@ -4,6 +4,15 @@ All notable changes to DS5Dongle BL618 firmware are documented here.
 
 ---
 
+## v3.19.7 (UI refresh) - 2026-09-10
+
+### Changed
+- **伴生应用 UI 全面改版**：12/8px 大圆角、蓝黑渐变背景、玻璃质感卡片、柔和浮起阴影、accent 发光与 focus 光环
+- 设置项由下拉框改为 **iOS 风格滑动开关**；按钮按压手感、滑条与健康徽章呼吸动效、页面切换入场动画
+- Overview 指标卡增加状态图标；Flash 刷写页内联样式统一为样式类
+
+---
+
 ## v3.19.7 - 2026-09-09
 
 ### Changed

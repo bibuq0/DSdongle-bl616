@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   ArrowRight,
+  BatteryCharging,
   BookOpen,
+  Cpu,
   Gamepad2,
   Joystick,
   LayoutDashboard,
@@ -11,6 +13,7 @@ import {
   Minus,
   Moon,
   Settings,
+  Signal,
   Sun,
   Volume2,
   X,
@@ -144,15 +147,18 @@ function Toggle({
   value: boolean;
   onChange: (value: boolean) => void;
 }) {
-  const { t } = useI18n();
   return (
-    <select
-      value={value ? '1' : '0'}
-      onChange={(event) => onChange(event.target.value === '1')}
+    <button
+      type="button"
+      role="switch"
+      aria-checked={value}
+      aria-label={value ? 'On' : 'Off'}
+      className="switch"
+      data-on={value}
+      onClick={() => onChange(!value)}
     >
-      <option value="1">{t('common.on')}</option>
-      <option value="0">{t('common.off')}</option>
-    </select>
+      <span className="knob" />
+    </button>
   );
 }
 
@@ -462,31 +468,49 @@ function Overview({ snapshot }: { snapshot: BridgeSnapshot }): React.JSX.Element
   return (
     <div className="metric-grid">
       <div className="metric">
-        <div className="k">{t('status.controller')}</div>
+        <div className="k">
+          <Gamepad2 size={13} strokeWidth={2.2} />
+          {t('status.controller')}
+        </div>
         <div className="v">
           {controllerOnline ? t('common.connected') : t('common.disconnected')}
         </div>
       </div>
       <div className="metric">
-        <div className="k">{t('status.firmware')}</div>
+        <div className="k">
+          <Cpu size={13} strokeWidth={2.2} />
+          {t('status.firmware')}
+        </div>
         <div className="v">{snapshot.firmwareVersion || '—'}</div>
       </div>
       <div className="metric">
-        <div className="k">{t('status.battery')}</div>
+        <div className="k">
+          <BatteryCharging size={13} strokeWidth={2.2} />
+          {t('status.battery')}
+        </div>
         <div className={`v ${batteryClass}`}>
           {batteryLabel(status.batteryPercent, status.batteryState, t)}
         </div>
       </div>
       <div className="metric">
-        <div className="k">{t('status.rssi')}</div>
+        <div className="k">
+          <Signal size={13} strokeWidth={2.2} />
+          {t('status.rssi')}
+        </div>
         <div className="v">{rssiLabel(status.rssi, status.rssiKnown, t)}</div>
       </div>
       <div className="metric">
-        <div className="k">{t('status.speakerStream')}</div>
+        <div className="k">
+          <Volume2 size={13} strokeWidth={2.2} />
+          {t('status.speakerStream')}
+        </div>
         <div className="v">{status.speakerActive ? t('common.on') : t('common.off')}</div>
       </div>
       <div className="metric">
-        <div className="k">{t('status.micStream')}</div>
+        <div className="k">
+          <Mic size={13} strokeWidth={2.2} />
+          {t('status.micStream')}
+        </div>
         <div className="v">{status.micActive ? t('common.on') : t('common.off')}</div>
       </div>
     </div>
@@ -978,33 +1002,33 @@ function FirmwareFlash(): React.JSX.Element {
         <Row label={t('flash.boot2')} hint={t('flash.boot2Hint')}>
           <input
             type="text"
-            style={{ width: 300 }}
+            className="flash-path-input"
             value={boot2Path}
             onChange={(event) => setBoot2Path(event.target.value)}
           />
-          <button type="button" className="secondary-action" style={{ minHeight: 36, padding: '0 12px' }} onClick={() => browse('boot2', boot2Path, t('flash.boot2'))}>
+          <button type="button" className="secondary-action compact-action" onClick={() => browse('boot2', boot2Path, t('flash.boot2'))}>
             {t('flash.browse')}
           </button>
         </Row>
         <Row label={t('flash.partition')} hint={t('flash.partitionHint')}>
           <input
             type="text"
-            style={{ width: 300 }}
+            className="flash-path-input"
             value={partitionPath}
             onChange={(event) => setPartitionPath(event.target.value)}
           />
-          <button type="button" className="secondary-action" style={{ minHeight: 36, padding: '0 12px' }} onClick={() => browse('partition', partitionPath, t('flash.partition'))}>
+          <button type="button" className="secondary-action compact-action" onClick={() => browse('partition', partitionPath, t('flash.partition'))}>
             {t('flash.browse')}
           </button>
         </Row>
         <Row label={t('flash.firmware')} hint={t('flash.firmwareHint')}>
           <input
             type="text"
-            style={{ width: 300 }}
+            className="flash-path-input"
             value={firmwarePath}
             onChange={(event) => setFirmwarePath(event.target.value)}
           />
-          <button type="button" className="secondary-action" style={{ minHeight: 36, padding: '0 12px' }} onClick={() => browse('firmware', firmwarePath, t('flash.firmware'))}>
+          <button type="button" className="secondary-action compact-action" onClick={() => browse('firmware', firmwarePath, t('flash.firmware'))}>
             {t('flash.browse')}
           </button>
         </Row>
