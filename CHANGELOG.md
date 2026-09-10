@@ -4,6 +4,13 @@ All notable changes to DS5Dongle BL618 firmware are documented here.
 
 ---
 
+## v0.2.5 - 2026-09-10
+
+### Changed
+- **伴生应用版本号升至 0.2.5**（应用独立版本号，内置 v3.19.7 固件），重新打包安装包 `DS5-Dongle-Setup-0.2.5.exe`
+
+---
+
 ## v3.19.7 (UI refresh) - 2026-09-10
 
 ### Changed
