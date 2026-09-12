@@ -130,7 +130,11 @@ static const uint8_t audio_desc[AUDIO_DESC_SIZE] = {
     0x09,                           /* bmAttributes: Isochronous, Adaptive */
     (USB_AUDIO_OUT_MPS & 0xFF),
     (USB_AUDIO_OUT_MPS >> 8),
+#ifdef FORCE_FS_MODE
+    0x01,                           /* bInterval: FS counts 1ms frames -> 1ms */
+#else
     0x04,                           /* bInterval: HS 2^(4-1)=8 µf = 1ms */
+#endif
     0x00, 0x00,
 
     /* CS Endpoint: General */
@@ -168,7 +172,11 @@ static const uint8_t audio_desc[AUDIO_DESC_SIZE] = {
     0x05,                           /* bmAttributes: Isochronous, Asynchronous */
     (USB_AUDIO_MIC_MPS & 0xFF),
     (USB_AUDIO_MIC_MPS >> 8),
+#ifdef FORCE_FS_MODE
+    0x01,                           /* bInterval: FS counts 1ms frames -> 1ms */
+#else
     0x04,                           /* bInterval: HS 2^(4-1)=8 µf = 1ms */
+#endif
     0x00, 0x00,
 
     /* CS Endpoint: General */

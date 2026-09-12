@@ -11,6 +11,13 @@ All notable changes to DS5Dongle BL618 firmware are documented here.
 
 ---
 
+## v3.19.7 (FS audio fix) - 2026-09-12
+
+### Fixed
+- **全速版固件音频端点周期错误**：扬声器/麦克风 ISO 端点的 `bInterval` 硬编码为 `0x04`（按高速语义 `2^(n-1)` 微帧编写）。全速模式下该值表示 **4ms** 而非 1ms，端点服务周期变成 4 倍、音频数据率不足，在 Linux 下表现为音频卡顿。现按 `FORCE_FS_MODE` 区分：全速用 `0x01`(1ms)，高速保持 `0x04`(1ms)。已用二进制验证两版描述符（全速 `...88 01 01` / 高速 `...88 01 04`），**高速版固件逐字节不变**。
+
+---
+
 ## v3.19.7 (UI refresh) - 2026-09-10
 
 ### Changed
