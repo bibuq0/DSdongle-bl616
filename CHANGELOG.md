@@ -4,6 +4,19 @@ All notable changes to DS5Dongle BL618 firmware are documented here.
 
 ---
 
+## v3.19.23 - 2026-09-13
+
+### Changed
+- **扬声器编码带宽改为随麦克风状态动态切换**。此前（v3.19.20 起）无条件限到 WIDEBAND，代价是扬声器音质永久损失一截；但限制带宽的**唯一目的**是给麦克风解码器腾 CPU，没在录音时这个代价白付。
+  - 判断依据是 `mic_enabled`（主机打开了麦克风流 **且** 应用允许透传），不是单独的 `disable_mic` 配置位——只有它真正对应"解码器在消耗 CPU"。用配置位会漏掉危险场景：应用里关掉透传但主机仍开着流时配置位变 0，带宽回到 FULLBAND 而解码器还在跑，麦克风卡顿会复发。
+  - 麦克风起停时只发一条 `OPUS_SET_MAX_BANDWIDTH` CTL，**不重建编码器、不 `OPUS_RESET_STATE`**，所以切换无声。安全性依据：该 CTL 只写 `st->max_bandwidth`，`opus_encode_native()` 每帧读它（`opus_encoder.c:1629`），下一帧生效；且 `st->bandwidth` 在 CELT-only 下每帧由自动带宽选择重算并只被 `max_bandwidth` 夹一次，抬回 FULLBAND 不会被粘住。
+  - 实测等效码率约 116 kbps（160 kbps CBR 单声道、complexity 0 折算），远高于 FULLBAND 门限 `mono_music_bandwidth_thresholds[6]` = 12000，所以不设上限时编码器确实会选 FULLBAND，开关有效。
+- **伴生应用**：「扬声器透传」移到「麦克风透传」上方；麦克风透传下方新增提示"开启此功能后。扬声器音质有一定程度损失"（中英文均已补）。
+- 固件版本号升至 **3.19.23 / 3.19.23H**（全速版/高速版）
+- 重新编译双版本固件并重新打包安装包
+
+---
+
 ## v3.19.22 - 2026-09-13
 
 ### Changed
