@@ -80,7 +80,7 @@ const zh = {
   'audio.volumeLockHint': '阻止主机修改音量',
   'audio.passthrough': '透传',
   'audio.micPassthrough': '麦克风透传',
-  'audio.micPassthroughHint': '开启此功能后。扬声器音质有一定程度损失',
+  'audio.micPassthroughHint': '开启此功能后，扬声器音质有一定程度损失。',
   'audio.speakerPassthrough': '扬声器透传',
   'haptics.gain': '触觉增益',
   'haptics.gainHint': 'HD 触觉振幅缩放，1.0–2.0',
