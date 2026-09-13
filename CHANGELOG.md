@@ -4,6 +4,18 @@ All notable changes to DS5Dongle BL618 firmware are documented here.
 
 ---
 
+## v3.19.8 - 2026-09-12
+
+### Fixed
+- **休眠唤醒后音频卡顿**：`USBD_EVENT_RESUME` 分支此前**不做任何音频处理**，而 `USBD_EVENT_SUSPEND` 只 stop 不重置编解码器。USB 总线挂起并不会取消 alternate setting，主机是"挂着流"睡过去的；唤醒后 `audio_ep_out_handler()` 看到 `stream_active == false` 就**不再重新 arm 端点**，唤醒后第一个 ISO 包被丢弃、OUT 端点从此停止收数据，直到主机碰巧重开流——听感就是唤醒后一直卡顿。Modern Standby 走的是 SUSPEND→RESUME 这条路（不是 RESET），所以 `RESET` 里原有的重置救不了它。新增 `usb_audio_suspend()/usb_audio_resume()/usb_audio_host_reset()`：挂起时记住哪些流是打开的，唤醒时恢复标志并重新 arm 扬声器/麦克风 ISO 端点，同时重置 Opus 编解码器与 PCM/麦克风环形缓冲（休眠前的编码器历史已失效）。
+- 固件版本号升至 **3.19.8 / 3.19.8H**（全速版/高速版）
+- 重新编译双版本固件并重新打包安装包
+
+### Notes
+- 本条对应作者 v3.20a 发布说明里的"修复电脑休眠唤醒后手柄音频卡顿"。作者该版本源码未公开（其公开仓库停在 v3.18），实现方式不同，此处是按症状自行定位修复。
+
+---
+
 ## v0.2.5 - 2026-09-10
 
 ### Changed

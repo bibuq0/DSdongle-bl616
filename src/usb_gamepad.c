@@ -23,9 +23,9 @@
 
 #if defined(BOARD_LCTECH_616)
   #ifdef FORCE_FS_MODE
-    #define FIRMWARE_VERSION "LCT616-DS5 3.19.7"
+    #define FIRMWARE_VERSION "LCT616-DS5 3.19.8"
   #else
-    #define FIRMWARE_VERSION "LCT616-DS5 3.19.7H"
+    #define FIRMWARE_VERSION "LCT616-DS5 3.19.8H"
   #endif
 #elif defined(BOARD_M0S_DOCK)
 #define FIRMWARE_VERSION "M0S-DS5 3.5"
@@ -663,19 +663,14 @@ static void usbd_event_handler(uint8_t busid, uint8_t event)
         kbd_ep_busy = false;
         first_usb_send_logged = false;
         first_epout_logged = false;
-        usb_audio_stop();
-        usb_audio_mic_stop();
-        audio_set_mic_active(false);
-        audio_reset_encoder();
+        usb_audio_host_reset();
         LOG_INF("[USB-EVT] RESET — host detected device, bus reset sent\n");
         break;
     case USBD_EVENT_SUSPEND:
         usb_configured = false;
         ep_in_busy = false;
         kbd_ep_busy = false;
-        usb_audio_stop();
-        usb_audio_mic_stop();
-        audio_set_mic_active(false);
+        usb_audio_suspend();
         LOG_INF("[USB-EVT] SUSPEND\n");
         if (hook_suspend)
             hook_suspend();
@@ -686,6 +681,11 @@ static void usbd_event_handler(uint8_t busid, uint8_t event)
         kbd_ep_busy = false;
         usbd_ep_start_read(busid, USB_GAMEPAD_EP_OUT,
                            ep_out_rx_buf, sizeof(ep_out_rx_buf));
+        /* The host resumes the ISO streams without reopening them, so the
+         * audio endpoints have to be re-armed here or audio never comes
+         * back after a sleep/wake cycle (Modern Standby wakes take this
+         * path, not RESET). */
+        usb_audio_resume(busid);
         LOG_INF("[USB-EVT] RESUME\n");
         if (hook_resume)
             hook_resume();

@@ -482,3 +482,66 @@ void usb_audio_mic_stop(void)
     mic_ring_wr = 0;
     mic_ring_rd = 0;
 }
+
+/* ---- Bus suspend / resume ---------------------------------------
+ * A USB bus suspend does NOT deselect the alternate setting: the host
+ * keeps the ISO streams open and simply stops sending until resume.
+ * The stream flags therefore have to be restored on resume, because
+ * audio_ep_out_handler() stops re-arming the endpoint as soon as
+ * stream_active goes false. Without the restore, the first packet after
+ * wake is dropped and the OUT endpoint stays dead until the host happens
+ * to re-open the stream — which is heard as stuttering after wake.
+ * Only the codec and buffer state is discarded (Opus history from before
+ * the suspend is stale and would smear the first frames).
+ * usb_audio_suspend() needs no busid; usb_audio_resume() takes one because
+ * re-arming the endpoints is the only step that requires it. */
+static volatile bool spk_was_streaming = false;
+static volatile bool mic_was_streaming = false;
+
+void usb_audio_suspend(void)
+{
+    spk_was_streaming = stream_active;
+    mic_was_streaming = mic_active;
+    usb_audio_stop();
+    usb_audio_mic_stop();
+    audio_set_mic_active(false);
+    audio_reset_encoder();
+}
+
+void usb_audio_resume(uint8_t busid)
+{
+    audio_reset_encoder();
+
+    if (spk_was_streaming) {
+        stream_active  = true;
+        pcm_write_pos  = 0;
+        pcm_write_idx  = 0;
+        pcm_ready      = false;
+        state_mgr_set_spk_active(true);
+        usbd_ep_start_read(busid, USB_AUDIO_EP_OUT, iso_rx_buf, sizeof(iso_rx_buf));
+        LOG_INF("[AUDIO] Speaker stream restored after resume\n");
+    }
+    if (mic_was_streaming) {
+        mic_active  = true;
+        mic_ring_wr = 0;
+        mic_ring_rd = 0;
+        audio_set_mic_active(true);
+        mic_send_next(busid);
+        LOG_INF("[AUDIO] Mic stream restored after resume\n");
+    }
+
+    spk_was_streaming = false;
+    mic_was_streaming = false;
+}
+
+/* Bus reset / re-enumeration: the host will open the streams again from
+ * scratch, so drop the remembered state instead of restoring it. */
+void usb_audio_host_reset(void)
+{
+    spk_was_streaming = false;
+    mic_was_streaming = false;
+    usb_audio_stop();
+    usb_audio_mic_stop();
+    audio_set_mic_active(false);
+    audio_reset_encoder();
+}

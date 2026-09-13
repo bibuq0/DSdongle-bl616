@@ -87,4 +87,26 @@ bool usb_audio_mic_is_active(void);
  */
 void usb_audio_mic_stop(void);
 
+/**
+ * Bus suspend: remember which ISO streams were open, then tear them down
+ * and drop stale codec state. Pair with usb_audio_resume() on resume.
+ */
+void usb_audio_suspend(void);
+
+/**
+ * Bus resume: re-arm the ISO endpoints that were streaming before the
+ * suspend and reset the Opus codec. Without this the OUT endpoint is
+ * never re-armed (audio_ep_out_handler returns early when stream_active
+ * is false) and audio stays broken until the host re-opens the stream.
+ */
+void usb_audio_resume(uint8_t busid);
+
+/**
+ * Bus reset / re-enumeration: like usb_audio_suspend() but forgets the
+ * remembered stream state, since the host reopens streams from scratch.
+ * Replaces the usb_audio_stop()+mic_stop()+audio_reset_encoder() trio
+ * previously inlined in the USBD_EVENT_RESET handler.
+ */
+void usb_audio_host_reset(void);
+
 #endif /* DS5_USB_AUDIO_H */
