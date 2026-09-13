@@ -147,6 +147,20 @@ static int encoder_setup(int channels)
     opus_encoder_ctl(encoder, OPUS_SET_FORCE_CHANNELS(channels));
     encoder_force_channels = channels;
 
+    /* Cap the encoded bandwidth. The CELT end-band mapping is 21/19/17/13 bands
+     * for fullband/superwideband/wideband/narrowband (opus_encoder.c:2267);
+     * OPUS_BANDWIDTH_MEDIUMBAND is a duplicate of wideband in CELT mode.
+     * The MDCT is full-band and unaffected, so the CPU saving is smaller than
+     * the band-count ratio suggests -- only quant_all_bands, denormalise_bands
+     * and the band energies scale.
+     * Reason for capping at all: encode+decode saturate ~91% of the report
+     * cycle, and the mic decoder was losing 15-25% of its frames to queue
+     * overflow.
+     * Wideband is the measured sweet spot: it zeroes the frame loss while the
+     * speaker change is described as barely noticeable. Superwideband (19 bands,
+     * only half the saving) was tried and reverted. */
+    opus_encoder_ctl(encoder, OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_WIDEBAND));
+
     /* Pre-encode one silent frame for the silence short-circuit, then reset so
      * the real stream starts with clean history. Must be redone on re-init
      * because the frame's TOC byte encodes the channel count. */
