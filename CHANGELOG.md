@@ -4,6 +4,18 @@ All notable changes to DS5Dongle BL618 firmware are documented here.
 
 ---
 
+## v3.19.22 - 2026-09-13
+
+### Changed
+- **移除诊断计数器**，代码回归简洁。删掉 v3.19.18 加入的麦克风链路计数（`rx`/`qdrop`/`rdrop`/`under`）、扬声器峰值统计，以及 `main.c` 里关于麦克风优先级的结论注释；`[STAT]` 行恢复为 `enc … | dec …` 两项，`ds5_usb_audio.c/h` 的 `usb_audio_mic_full_drops()` / `usb_audio_mic_underruns()` / `usb_audio_mic_stats_reset()` 一并删除。
+  - 诊断目的已达成（结论：麦克风丢帧是 CPU 不足，已由 v3.19.20 的带宽限制修复），无需常驻。
+  - 顺带把 `[STAT]` 行的串口输出从 108 字符缩回 66 字符。控制台串口是 115200 baud 且 `bflb_uart_putchar()` 为自旋忙等，原来这行每 2 秒要阻塞 `audio_task` 约 6.6 ms（并压低麦克风任务），现在约 3 ms。
+- **保留**静音跳过阈值 `SILENCE_PEAK_MAX = 64`（v3.19.18 引入）与 `pcm_peak()`——这是功能修复而非诊断：Windows 在端点空闲时会送抖动底噪，阈值 4 会让静音跳过几乎不触发。
+- 固件版本号升至 **3.19.22 / 3.19.22H**（全速版/高速版）
+- 重新编译双版本固件并重新打包安装包
+
+---
+
 ## v3.19.20 - 2026-09-13
 
 ### Fixed
