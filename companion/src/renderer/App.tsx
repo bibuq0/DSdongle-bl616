@@ -571,14 +571,14 @@ function Audio({
         </Row>
       </Card>
       <Card title={t('audio.passthrough')}>
-        <Row label={t('audio.micPassthrough')}>
-          <Toggle value={!config.disableMic} onChange={(value) => apply({ disableMic: !value })} />
-        </Row>
         <Row label={t('audio.speakerPassthrough')}>
           <Toggle
             value={!config.disableSpeaker}
             onChange={(value) => apply({ disableSpeaker: !value })}
           />
+        </Row>
+        <Row label={t('audio.micPassthrough')} hint={t('audio.micPassthroughHint')}>
+          <Toggle value={!config.disableMic} onChange={(value) => apply({ disableMic: !value })} />
         </Row>
       </Card>
     </div>
