@@ -51,9 +51,15 @@
 static uint8_t audio_seq;   /* sequence counter for 0x39 audio report */
 
 /* Static buffers for Opus encoder/decoder — avoids 20+KB heap allocation.
- * Upper bounds verified at init via opus_encoder_get_size() / opus_decoder_get_size(). */
-#define OPUS_ENC_MAX_SIZE 36864
-#define OPUS_DEC_MAX_SIZE 24576
+ * The previous values (36864/24576) were loose guesses; the real sizes are
+ * printed at boot and are far smaller:
+ *     [AUDIO] Opus static init (enc=12288/36864 dec=9592/24576 ...)
+ * (SILK is stubbed out in lib/opus, so the encoder needs only 12 KB.)
+ * Right-sizing them hands ~38 KB back to the heap, which is what pays for
+ * moving the encoder hot path from XIP flash into RAM — see CMakeLists.txt.
+ * The check in audio_init() still rejects a build where these are too small. */
+#define OPUS_ENC_MAX_SIZE 13312   /* 12288 + 1024 margin */
+#define OPUS_DEC_MAX_SIZE 10240   /*  9592 +  648 margin */
 static __attribute__((aligned(8))) uint8_t encoder_mem[OPUS_ENC_MAX_SIZE];
 static __attribute__((aligned(8))) uint8_t decoder_mem[OPUS_DEC_MAX_SIZE];
 static OpusEncoder  *encoder;
@@ -69,6 +75,7 @@ static QueueHandle_t mic_queue;
 static int16_t  pcm_block[ACCUM_SAMPLES * USB_AUDIO_CHANNELS];
 
 static int16_t  spk_resamp[OPUS_FRAME_SAMPLES * 2];
+static int16_t  spk_mono[OPUS_FRAME_SAMPLES];   /* downmix fed to a mono encoder */
 static bool     mic_first_frame;
 static volatile bool encoding_in_progress;
 static volatile bool encoder_reset_pending;
@@ -76,6 +83,85 @@ static volatile bool audio_task_killed;
 static volatile uint64_t encode_start_us;
 static TaskHandle_t audio_task_handle;
 static TimerHandle_t encode_watchdog;
+
+/* Per-call Opus cost, printed every 2 s. The codec is this board's hard
+ * performance limit (encode x2 + decode x2.13 must fit in a 21.33 ms report
+ * cycle), so keep the instrument around for any future audio change.
+ * Set AUDIO_STATS to 0 to compile it out entirely. */
+#define AUDIO_STATS 1
+#if AUDIO_STATS
+static volatile uint32_t st_enc_sum_us, st_enc_max_us, st_enc_n;
+static volatile uint32_t st_dec_sum_us, st_dec_max_us, st_dec_n;
+static volatile uint32_t st_enc_skips;
+static uint32_t st_last_report_ms;
+#endif
+
+/* ---- Silence short-circuit for the speaker encoder --------------------
+ * A pre-encoded silent 10 ms frame, produced once at init. Replayed verbatim
+ * whenever the resampled block carries no signal, so the controller still
+ * receives a well-formed stream without paying for a real encode. */
+#define SILENCE_PEAK_MAX 4     /* int16 LSBs; real silence is exactly 0 */
+static uint8_t  silence_frame[OPUS_OUT_SIZE];
+static bool     silence_skip_ready;
+static bool     encoder_needs_reset;
+
+static bool pcm_is_silent(const int16_t *pcm, int n)
+{
+    for (int i = 0; i < n; i++) {
+        int32_t v = pcm[i];
+        if (v < 0) v = -v;
+        if (v > SILENCE_PEAK_MAX) return false;
+    }
+    return true;
+}
+
+/* ---- Encoder (re)initialisation ---------------------------------------
+ * Create the encoder with the channel count actually used: compute_mdcts()
+ * (celt_encoder.c) runs its MDCT loop once per channel the encoder was
+ * *created* with and only downmixes afterwards, so creating it with 2
+ * channels and then forcing mono computes two MDCTs and discards half.
+ * OPUS_SET_FORCE_CHANNELS cannot exceed the creation count, hence the full
+ * re-init when a headset switches us to stereo. */
+static int encoder_setup(int channels)
+{
+    int err = opus_encoder_init(encoder, 48000, channels,
+                                OPUS_APPLICATION_RESTRICTED_LOWDELAY);
+    if (err != OPUS_OK) {
+        LOG_ERR("[AUDIO] Opus encoder init(%dch) failed: %d\n", channels, err);
+        return -1;
+    }
+
+    opus_encoder_ctl(encoder, OPUS_SET_EXPERT_FRAME_DURATION(OPUS_FRAMESIZE_10_MS));
+    opus_encoder_ctl(encoder, OPUS_SET_BITRATE(200 * 8 * 100));
+    opus_encoder_ctl(encoder, OPUS_SET_VBR(0));
+    opus_encoder_ctl(encoder, OPUS_SET_COMPLEXITY(0));
+    opus_encoder_ctl(encoder, OPUS_SET_FORCE_MODE_REQUEST, (opus_int32)MODE_CELT_ONLY);
+    opus_encoder_ctl(encoder, OPUS_SET_FORCE_CHANNELS(channels));
+    encoder_force_channels = channels;
+
+    /* Pre-encode one silent frame for the silence short-circuit, then reset so
+     * the real stream starts with clean history. Must be redone on re-init
+     * because the frame's TOC byte encodes the channel count. */
+    silence_skip_ready = false;
+    {
+        static int16_t zeros[OPUS_FRAME_SAMPLES * 2];
+        memset(zeros, 0, sizeof(zeros));
+        int n = opus_encode(encoder, zeros, OPUS_FRAME_SAMPLES,
+                            silence_frame, OPUS_OUT_SIZE);
+        if (n > 0) {
+            if (n < OPUS_OUT_SIZE)
+                memset(silence_frame + n, 0, OPUS_OUT_SIZE - (size_t)n);
+            silence_skip_ready = true;
+        } else {
+            LOG_WRN("[AUDIO] silence frame pre-encode failed (%d); "
+                    "silence short-circuit disabled\n", n);
+        }
+        opus_encoder_ctl(encoder, OPUS_RESET_STATE);
+        LOG_INF("[AUDIO] Encoder reinit %dch (silence %d B, skip=%d)\n",
+                channels, n, (int)silence_skip_ready);
+    }
+    return 0;
+}
 
 /* Double-frame buffers for 0x39 report (2x haptics + 2x opus per packet) */
 static uint8_t  opus_slots[2][OPUS_OUT_SIZE];
@@ -355,22 +441,10 @@ int audio_init(void)
     }
 
     encoder = (OpusEncoder *)encoder_mem;
-    err = opus_encoder_init(encoder, 48000, 2,
-                            OPUS_APPLICATION_RESTRICTED_LOWDELAY);
-    if (err != OPUS_OK) {
-        LOG_ERR("[AUDIO] Opus encoder init failed: %d\n", err);
+    if (encoder_setup(1) != 0) {
         encoder = NULL;
         return -1;
     }
-
-    opus_encoder_ctl(encoder, OPUS_SET_EXPERT_FRAME_DURATION(OPUS_FRAMESIZE_10_MS));
-    opus_encoder_ctl(encoder, OPUS_SET_BITRATE(200 * 8 * 100));
-    opus_encoder_ctl(encoder, OPUS_SET_VBR(0));
-    opus_encoder_ctl(encoder, OPUS_SET_COMPLEXITY(0));
-    opus_encoder_ctl(encoder, OPUS_SET_FORCE_MODE_REQUEST, (opus_int32)MODE_CELT_ONLY);
-    /* Start mono (lower CPU); switch to stereo when a headset is plugged. */
-    opus_encoder_ctl(encoder, OPUS_SET_FORCE_CHANNELS(1));
-    encoder_force_channels = 1;
 
     decoder = (OpusDecoder *)decoder_mem;
     err = opus_decoder_init(decoder, 48000, MIC_CHANNELS);
@@ -446,6 +520,24 @@ void audio_task(void *arg)
     static uint16_t send_fail_streak = 0;
 
     for (;;) {
+#if AUDIO_STATS
+        {
+            uint32_t now_ms = (uint32_t)(bflb_mtimer_get_time_us() / 1000);
+            if (st_last_report_ms == 0) st_last_report_ms = now_ms;
+            if (now_ms - st_last_report_ms >= 2000) {
+                LOG_INF("[STAT] enc avg%u max%u x%u skip%u | dec avg%u max%u x%u\n",
+                        st_enc_n ? (unsigned)(st_enc_sum_us / st_enc_n) : 0u,
+                        (unsigned)st_enc_max_us, (unsigned)st_enc_n,
+                        (unsigned)st_enc_skips,
+                        st_dec_n ? (unsigned)(st_dec_sum_us / st_dec_n) : 0u,
+                        (unsigned)st_dec_max_us, (unsigned)st_dec_n);
+                st_last_report_ms = now_ms;
+                st_enc_sum_us = 0; st_enc_max_us = 0; st_enc_n = 0;
+                st_dec_sum_us = 0; st_dec_max_us = 0; st_dec_n = 0;
+                st_enc_skips = 0;
+            }
+        }
+#endif
         if (xSemaphoreTake(sem, pdMS_TO_TICKS(25)) == pdTRUE) {
             if (usb_audio_is_active() &&
                 usb_audio_read(pcm_block) &&
@@ -457,14 +549,13 @@ void audio_task(void *arg)
                  * (lower CPU), stereo only while a 3.5mm headset is plugged. */
                 int target_channels = plug_headset ? 2 : 1;
                 if (target_channels != encoder_force_channels) {
-                    int ctl_err = opus_encoder_ctl(
-                        encoder, OPUS_SET_FORCE_CHANNELS(target_channels));
-                    if (ctl_err == OPUS_OK) {
-                        encoder_force_channels = target_channels;
-                    } else {
-                        LOG_ERR("[AUDIO] Opus force %s failed: %d\n",
-                                target_channels == 1 ? "mono" : "stereo",
-                                ctl_err);
+                    /* Must re-init rather than just retune: the channel count
+                     * the encoder was created with drives compute_mdcts()'s
+                     * per-channel loop (see encoder_setup above). */
+                    if (encoder_setup(target_channels) != 0) {
+                        LOG_ERR("[AUDIO] encoder reinit %dch failed,"
+                                " staying %dch\n",
+                                target_channels, encoder_force_channels);
                     }
                 }
 
@@ -476,11 +567,58 @@ void audio_task(void *arg)
 
                     if (speaker_on) {
                         resample_512_480(slot_pcm, spk_resamp);
+
+                        /* Windows keeps the audio endpoint open (and feeding
+                         * zeros) whenever nothing is playing, so encoding is
+                         * otherwise paid unconditionally: measured at ~7 ms per
+                         * 10 ms frame = 66% of the 21.33 ms report cycle, which
+                         * is exactly what starves the mic decoder. Reuse a
+                         * pre-encoded silence frame instead. */
+                        if (silence_skip_ready &&
+                            pcm_is_silent(spk_resamp, OPUS_FRAME_SAMPLES * 2)) {
+                            memcpy(opus_slots[slot], silence_frame, OPUS_OUT_SIZE);
+                            st_enc_skips++;
+                            encoder_needs_reset = true;
+                            continue;
+                        }
+
+                        /* First real frame after silence: the encoder's history
+                         * predates the gap, so start it clean. */
+                        if (encoder_needs_reset) {
+                            encoder_needs_reset = false;
+                            opus_encoder_ctl(encoder, OPUS_RESET_STATE);
+                        }
+
                         encode_start_us = bflb_mtimer_get_time_us();
                         encoding_in_progress = true;
-                        int encoded = opus_encode(encoder, spk_resamp, OPUS_FRAME_SAMPLES,
+                        /* opus_encode() consumes frame_size * st->channels
+                         * samples, so a mono-created encoder must be handed a
+                         * real mono frame: spk_resamp is interleaved L,R,L,R
+                         * and would otherwise be read as every other sample,
+                         * which sounds detuned/garbled. Opus's own stereo->mono
+                         * path is (L+R)/2 applied in the MDCT domain, so doing
+                         * it here is equivalent -- and it is what buys the
+                         * single-MDCT saving in encoder_setup(). */
+                        const int16_t *enc_in = spk_resamp;
+                        if (encoder_force_channels == 1) {
+                            for (int i = 0; i < OPUS_FRAME_SAMPLES; i++)
+                                spk_mono[i] = (int16_t)(((int32_t)spk_resamp[i * 2] +
+                                                         spk_resamp[i * 2 + 1]) >> 1);
+                            enc_in = spk_mono;
+                        }
+
+                        int encoded = opus_encode(encoder, enc_in, OPUS_FRAME_SAMPLES,
                                                   opus_slots[slot], OPUS_OUT_SIZE);
                         encoding_in_progress = false;
+
+#if AUDIO_STATS
+                        {
+                            uint32_t dt = (uint32_t)(bflb_mtimer_get_time_us() - encode_start_us);
+                            st_enc_sum_us += dt;
+                            if (dt > st_enc_max_us) st_enc_max_us = dt;
+                            st_enc_n++;
+                        }
+#endif
 
                         if (encoder_reset_pending) {
                             encoder_reset_pending = false;
@@ -614,8 +752,19 @@ void audio_mic_task(void *arg)
         if (!decoder || !mic_enabled)
             continue;
 
+#if AUDIO_STATS
+        uint64_t dec_t0 = bflb_mtimer_get_time_us();
+#endif
         int decoded = opus_decode(decoder, mic_opus_buf, MIC_OPUS_SIZE,
                                   mic_mono, OPUS_FRAME_SAMPLES, 0);
+#if AUDIO_STATS
+        {
+            uint32_t dt = (uint32_t)(bflb_mtimer_get_time_us() - dec_t0);
+            st_dec_sum_us += dt;
+            if (dt > st_dec_max_us) st_dec_max_us = dt;
+            st_dec_n++;
+        }
+#endif
         if (decoded <= 0) {
             LOG_ERR("[MIC] Opus decode error: %d\n", decoded);
             continue;

@@ -12,6 +12,7 @@ find_package(bouffalo_sdk REQUIRED HINTS $ENV{BL_SDK_BASE})
 # Incoming Bluetooth HCI/L2CAP reports must preempt audio encoding.
 sdk_add_compile_definitions(-DCONFIG_BT_RX_PRIO=5)
 
+
 sdk_set_main_file(src/main.c)
 
 target_sources(app PRIVATE
@@ -57,6 +58,50 @@ set(OPUS_INCLUDE_DIRS
 )
 target_include_directories(libopuscodec PRIVATE ${OPUS_INCLUDE_DIRS})
 target_include_directories(app PRIVATE ${OPUS_INCLUDE_DIRS})
+
+# Run Opus from SRAM instead of XIP flash.
+#
+# Keep the injection surgical. Moving the whole archive (~110 KB) does not fit:
+# the linker reserves ~234 KB of heap but the BT stack allocates ~170 KB at
+# init, so anything beyond ~50 KB leaves it unable to start (stuck blue LED).
+# Measured rule: the large *outer* functions are worth ~15% each time they move;
+# the innermost per-sample loops are worth nothing -- they are small and hot
+# enough to sit in the L1 I-cache already.
+get_property(OPUS_BASE_LINKER_SCRIPT GLOBAL PROPERTY LINKER_SCRIPT_IN)
+if(NOT EXISTS "${OPUS_BASE_LINKER_SCRIPT}")
+    message(FATAL_ERROR "Cannot locate the board linker template: ${OPUS_BASE_LINKER_SCRIPT}")
+endif()
+file(READ "${OPUS_BASE_LINKER_SCRIPT}" OPUS_LINKER_CONTENT)
+set(OPUS_TCM_RODATA_ANCHOR "        *(.tcm_const*)")
+string(FIND "${OPUS_LINKER_CONTENT}" "${OPUS_TCM_RODATA_ANCHOR}" OPUS_TCM_RODATA_POS)
+if(OPUS_TCM_RODATA_POS EQUAL -1)
+    message(FATAL_ERROR "Cannot locate tcm_const in ${OPUS_BASE_LINKER_SCRIPT}")
+endif()
+string(REPLACE
+    "${OPUS_TCM_RODATA_ANCHOR}"
+    "${OPUS_TCM_RODATA_ANCHOR}\n\n        /* Keep the hot Opus constant tables off XIP flash. */\n        *libopuscodec.a:*.o*(.rodata*)\n        *libopuscodec.a:*.o*(.srodata*)"
+    OPUS_LINKER_CONTENT
+    "${OPUS_LINKER_CONTENT}"
+)
+
+# Outer code, both directions. pitch/vq/quant_bands/celt_lpc are deliberately
+# left in flash (measured: moving them buys 0%).
+set(OPUS_TCM_TEXT_ANCHOR "        *(.tcm_code*)")
+string(FIND "${OPUS_LINKER_CONTENT}" "${OPUS_TCM_TEXT_ANCHOR}" OPUS_TCM_TEXT_POS)
+if(OPUS_TCM_TEXT_POS EQUAL -1)
+    message(FATAL_ERROR "Cannot locate tcm_code in ${OPUS_BASE_LINKER_SCRIPT}")
+endif()
+string(REPLACE
+    "${OPUS_TCM_TEXT_ANCHOR}"
+    "${OPUS_TCM_TEXT_ANCHOR}\n\n        /* Opus outer call stacks -- see the note above. */\n        *libopuscodec.a:celt_encoder.c.obj*(.text*)\n        *libopuscodec.a:opus_encoder.c.obj*(.text*)\n        *libopuscodec.a:celt_decoder.c.obj*(.text*)\n        *libopuscodec.a:opus_decoder.c.obj*(.text*)\n        *libopuscodec.a:entdec.c.obj*(.text*)\n        *libopuscodec.a:bands.c.obj*(.text*)\n        *libopuscodec.a:rate.c.obj*(.text*)\n        *libopuscodec.a:entenc.c.obj*(.text*)\n        *libopuscodec.a:mathops.c.obj*(.text*)\n        *libopuscodec.a:cwrs.c.obj*(.text*)"
+    OPUS_LINKER_CONTENT
+    "${OPUS_LINKER_CONTENT}"
+)
+set(OPUS_RAM_LINKER_SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/generated/opus_rodata_ram.ld.in")
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/generated")
+file(WRITE "${OPUS_RAM_LINKER_SCRIPT}" "${OPUS_LINKER_CONTENT}")
+sdk_set_linker_script_macro("${OPUS_RAM_LINKER_SCRIPT}")
+
 # Board selection via env vars (mutually exclusive)
 if(DEFINED ENV{BOARD_LCTECH_616})
     target_compile_definitions(app PRIVATE BOARD_LCTECH_616=1)

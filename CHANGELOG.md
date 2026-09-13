@@ -16,6 +16,93 @@ All notable changes to DS5Dongle BL618 firmware are documented here.
 
 ---
 
+## v3.19.16 - 2026-09-12
+
+### Changed
+- **解码器与其余外层代码搬进 RAM**：按已验证规律（大而冷的外层调用栈搬进 RAM 有效，小而热的内层循环无效——后者本来就在 L1 I-cache 里），把此前没搬的解码器外层与共享对象共 9 个注入 `tcm_code`：`celt_decoder.c`(11.8K)、`opus_decoder.c`(4.5K)、`entdec.c`(1.9K)、`bands.c`(14.4K)、`rate.c`(3.1K)、`entenc.c`(2.4K)、`mathops.c`(2.0K)、`cwrs.c`(1.2K)。`pitch/vq/quant_bands/celt_lpc` **故意不搬**（上一轮实测 0%）。
+  - 结果：`opus_decode` **4.25 → 3.6 ms（−15%）**；空闲堆 91.5 → 54.4 KB。
+
+### 音频性能优化总账（v3.19.7 → v3.19.16）
+| | 起点 | 现在 |
+|---|---|---|
+| `opus_encode` | 8.2 ms | **5.6 ms（−32%）** |
+| `opus_decode` | 4.85 ms | **3.6 ms（−26%）** |
+| 单周期预算（编码×2 + 解码×2.13） | 114%（超载） | **88.6%** |
+
+贡献：编码器外层搬 RAM −15%、**编码器单声道创建（消除每帧多余 MDCT）−21%**、解码器外层搬 RAM −15%、静音跳过编码（静音时不占 CPU）。
+
+### Notes
+- 同时纠正两条排查方向：**E907 厂商 DSP 指令必须保持开启**（关掉慢 19%）；**降低采样率无效**——该裁剪版 Opus 的编码器与解码器都硬编码 `opus_custom_mode_create(48000, 960, NULL)`，请求的采样率只设置 `upsample`/`downsample`，MDCT 尺寸不变，反而多出清零开销。
+
+---
+
+## v3.19.15 - 2026-09-12
+
+### Fixed
+- **扬声器音质劣化**（v3.19.14 引入）：编码器改为单声道创建后，`opus_encode()` 按 `frame_size * st->channels` 读取输入，于是把交织的 `spk_resamp`（L,R,L,R…）当成 **480 个连续采样**读走——相当于隔点抽样，音高与音色全变。现在在编码前自行降混成真正的单声道缓冲再送入。Opus 原本的立体声→单声道路径本就是在 MDCT 域做 `(L+R)/2`，因此这里做等价，且**不影响**省下的那次 MDCT。
+
+### Notes
+- 上一版实测 `enc` 由 **7.0 ms 降到 5.4 ms（−21%）**，新预算 `5.4×2 + 4.25×2.13 = 19.85 / 21.33 = 93%`，首次装进单周期预算。
+- 启动基准 `[B] BENCH: 10M LCG iters = 156253us (~319 MHz)`，与标称 320 MHz 吻合，确认 CPU 吞吐正常。
+
+---
+
+## v3.19.14 (实验) - 2026-09-12
+
+### Fixed
+- **编码器按单声道创建，消除每帧一次多余的 MDCT**。此前 `opus_encoder_init(…, 2, …)` 建的是双声道编码器，运行时靠 `OPUS_SET_FORCE_CHANNELS(1)` 转单声道。但 `celt_encoder.c:1754` 是 `const int CC = st->channels`，而 `compute_mdcts()` 的循环是：
+  ```c
+  c=0; do { for (b=0;b<B;b++) clt_mdct_forward(...); } while (++c<CC);
+  if (CC==2 && C==1) { ...降混... }
+  ```
+  —— **对两个通道各做一次完整 MDCT，做完才丢掉一半**。MDCT 是 CELT 编码两大开销之一。
+  - 现在改为 `opus_encoder_init(…, 1, …)`（`CC==1`，只做一次）。新增 `encoder_setup(channels)` 统一负责初始化 + 全部 CTL + 预编码静音帧；插拔 3.5mm 耳机时**整体重新初始化**（而不是只改 `FORCE_CHANNELS`），因为 `FORCE_CHANNELS` 不能超过创建时的通道数。这与作者 v3.20a 的 `[AUDIO] Encoder reinit %dch` 是同一思路。
+  - 启动日志新增 `[AUDIO] Encoder reinit 1ch (...)`。
+
+---
+
+## v3.19.13 - 2026-09-12
+
+### Added
+- **静音跳过编码**：Windows 只要开着音频端点就会持续送零，固件因此**无条件**编码——实测占 21.33 ms 周期的 **66%**，正是麦克风被饿死的原因（扬声器流一打开 `enc` 就变成 x188 并再也不停）。现在检测重采样后的 PCM 是否全静音（峰值 ≤ 4 LSB），是则直接复用初始化时预编码好的静音帧，并在静音结束后的第一帧重置编码器历史。`[STAT]` 行新增 `skip` 计数。
+- 启动新增两条自检日志：`[B] CLK:`（实际主频与 hclk/bclk 分频）与 `[B] BENCH:`（1000 万次 LCG 迭代实测耗时，用于确认 CPU 真实吞吐）。
+
+### Changed
+- **恢复 E907 厂商 DSP 指令**（`lib/opus_config.h` 的 `E907_OPUS_DSP`）。上一版关闭后实测**慢 19%**（7.0 → 8.3 ms），厂商指令是有帮助的。
+- 回退第二轮 RAM 注入（`vq/quant_bands/pitch/celt_lpc`，19.4 KB）：实测**收益 0%**，空闲堆从 90.7 KB 白降到 72.8 KB。
+
+### Notes
+- 至此"让 Opus 更快"的三条路线全部排除：主频已是 320 MHz（运行时确认）、XIP 非瓶颈（搬 60 KB 进 RAM 仅 15% 后为 0%）、`-O3` 已生效。**`opus_encode` ≈ 7.0 ms / `opus_decode` ≈ 4.85 ms 是该芯片的真实成本**，编码+解码共需 114% 的单周期预算。
+
+---
+
+## v3.19.10 (实验) - 2026-09-12
+
+### Changed
+- **Opus 静态缓冲按实测值收缩**：启动日志显示 `enc=12288/36864 dec=9592/24576`——`encoder_mem` 多分了 24 KB、`decoder_mem` 多分了 15 KB。现改为 `13312` / `10240`（各留约 8% 余量），**腾出 37.9 KB 堆**。`audio_init()` 的越界检查会拦住配置错误。
+- **Opus 编码器热代码从 XIP Flash 搬进 RAM**：链接脚本注入把 `celt_encoder.c.obj`(24.3 KB) 与 `opus_encoder.c.obj`(16.9 KB) 的 `.text` 放进 `tcm_code`。之前实测单次 `opus_encode`(480 样本) 要 **8.2 ms / 峰值 10.8 ms**，2 帧占满 21.33 ms 周期的 **77%**，麦克风解码被饿死（`dec avg 45–77 ms`、每 2 秒只解 24–54 帧）。该耗时比同负载的合理值慢 50–80 倍，指向 XIP 取指而非算法。
+  - 结果：RAM 驻留代码 20.6 → 61.6 KB；链接期堆区仅减少 2.8 KB，**剩余空闲堆约 93 KB**（此前已知可用水平 97.6 KB）。
+  - 回退方式：注释 `CMakeLists.txt` 的编码器注入块 + 还原 `src/audio.c` 的两个宏。
+
+### Notes
+- 本版与 v3.19.9 的唯一差别就是上面两项，用于 A/B 判断"XIP 取指是否是 Opus 的瓶颈"。
+
+---
+
+## v3.19.9 (实验) - 2026-09-12
+
+### Added
+- **Opus 常量表移出 XIP Flash**：`CMakeLists.txt` 用链接脚本注入把 `libopuscodec.a` 的 `.rodata`/`.srodata` 放进 `tcm_const`（SRAM）。**只搬常量表、不搬代码**——净增 RAM 约 5.8 KB（常量表总量 16.5 KB，其中约 10.7 KB 由 `OPUS_TCM_CONST` 原本已在 RAM），代码仍留在 Flash。堆 240 → 约 234 KB。
+  - 动机：这些表（mode/分配表、logN、cache caps、PVQ 与熵编码常量）在最内层 CELT 循环里被反复读取，缓存未命中的代价远超其体积。热**代码**路径（`quant_all_bands`/`opus_fft_impl`/`clt_mdct_*`）此前已由 `OPUS_TCM_CODE` 固定在 RAM。
+  - 验证：`build/verify_inject.py` 显示 `libopuscodec` 的 `.rodata` 在 Flash 中为 **0 B**、RAM 中 16,561 B。
+- **音频诊断统计**（`src/audio.c` 的 `AUDIO_STATS` 开关，置 0 可整体编译掉）：`opus_encode`/`opus_decode` 单次耗时（avg/max/次数）、空闲堆与**历史最低空闲堆**、编码看门狗触发次数，每 2 秒打印一行 `[STAT]`。
+- `CMakeLists.txt` 开启 `-DCONFIG_MM_ENABLE_MIN_FREE_TRACKING=1`（`mm.h` 的 `kmin_free_size()`；默认关闭会导致符号未定义）。代价是每次 kmalloc/kfree 多一次 O(1) 空闲量读取。
+
+### Notes
+- **本版是实验固件**，用于判定"Opus 卡在 XIP Flash 取指"这一假设是否成立。
+
+---
+
 ## v0.2.5 - 2026-09-10
 
 ### Changed

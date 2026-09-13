@@ -10,10 +10,11 @@
 
 #define HAVE_LRINTF        1
 
-/* E907 vendor DSP — ff1 (CLZ) disabled: causes opus_encode hang
- * (self-test passes but fails under ISR/pipeline pressure).
- * All other DSP instructions enabled.
- * TCM placement kept for cache-miss reduction. */
+/* E907 vendor DSP instructions (smmwb/kmmwb2/kwmmul/mulh/pkbb16/kmda/...).
+ * Measured: disabling the whole set makes opus_encode 19% SLOWER, so keep it.
+ * Every use site is `#if defined(E907_OPUS_DSP)` -- defining it as 0 would
+ * still enable them, it has to be left undefined to turn them off.
+ * ff1 (CLZ) stays disabled: it hangs opus_encode under ISR/pipeline pressure. */
 #if defined(__riscv)
 #define E907_OPUS_DSP      1
 #define E907_DISABLE_FF1   1
