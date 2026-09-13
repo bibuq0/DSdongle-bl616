@@ -4,15 +4,47 @@ All notable changes to DS5Dongle BL618 firmware are documented here.
 
 ---
 
-## v3.19.8 - 2026-09-12
+## v3.19.20 - 2026-09-13
 
 ### Fixed
-- **休眠唤醒后音频卡顿**：`USBD_EVENT_RESUME` 分支此前**不做任何音频处理**，而 `USBD_EVENT_SUSPEND` 只 stop 不重置编解码器。USB 总线挂起并不会取消 alternate setting，主机是"挂着流"睡过去的；唤醒后 `audio_ep_out_handler()` 看到 `stream_active == false` 就**不再重新 arm 端点**，唤醒后第一个 ISO 包被丢弃、OUT 端点从此停止收数据，直到主机碰巧重开流——听感就是唤醒后一直卡顿。Modern Standby 走的是 SUSPEND→RESUME 这条路（不是 RESET），所以 `RESET` 里原有的重置救不了它。新增 `usb_audio_suspend()/usb_audio_resume()/usb_audio_host_reset()`：挂起时记住哪些流是打开的，唤醒时恢复标志并重新 arm 扬声器/麦克风 ISO 端点，同时重置 Opus 编解码器与 PCM/麦克风环形缓冲（休眠前的编码器历史已失效）。
-- 固件版本号升至 **3.19.8 / 3.19.8H**（全速版/高速版）
-- 重新编译双版本固件并重新打包安装包
+- **扬声器 + 麦克风同时开启时麦克风卡顿（定稿修复）**：把编码带宽限制到 **WIDEBAND（8 kHz / 17 频带）**，`OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_WIDEBAND)`。
+  - 症状：只开麦克风时录音正常；一旦同时开扬声器并在电脑上播音乐，麦克风录音明显劣化。v3.19.18 的计数器给出了根因——`rx≈200`（手柄发来的帧一个不少，BT 链路干净），但 `dec` 掉到 152–176、`qdrop` 20–48、`under` 247–478，说明是 **CPU 被编码器占满、解码器排队丢帧**，不是链路或缓冲问题。
+  - 挡位（`opus_encoder.c:2267` 的 endband 映射）：`FULLBAND` 21 带/20 kHz、`SUPERWIDEBAND` 19 带/12 kHz（−10%）、`WIDEBAND` 17 带/8 kHz（−19%）、`NARROWBAND` 13 带/4 kHz（−38%）；`MEDIUMBAND` 在 CELT 模式下被提升为 `WIDEBAND`，等于无效。
+  - CPU 收益**不等于**频带数比例：MDCT 是全带宽固定开销、不受带宽设置影响，只有 `quant_all_bands`/`denormalise_bands`/频带能量按频带数缩放。
+  - v3.19.21 试过 `SUPERWIDEBAND`（只省一半）后回退；用户反馈 wideband 下扬声器变化不大。
+- 固件版本号升至 **3.19.20 / 3.19.20H**（全速版/高速版）
+
+---
+
+## v3.19.19 (实验，已回退) - 2026-09-13
 
 ### Notes
-- 本条对应作者 v3.20a 发布说明里的"修复电脑休眠唤醒后手柄音频卡顿"。作者该版本源码未公开（其公开仓库停在 v3.18），实现方式不同，此处是按症状自行定位修复。
+- 提高麦克风任务优先级（`MIC_TASK_PRIORITY` `MAX-4` → `MAX-3`，与 BT 同级）**实测无效**：`qdrop` 20–48 → 30–59、`under` 247–478 → 337–586，反而略差。这证明是**硬性 CPU 不足**而非优先级分配问题。已回退，代码中留有"勿再尝试"注释。
+- 更早试过提到 `MAX-2`，会让双向同时卡顿（BT 被饿死 → `send_output pool empty`）。
+
+---
+
+## v3.19.18 - 2026-09-13
+
+### Added
+- **麦克风链路计数器 + 扬声器峰值**，用于区分"丢在链路上"还是"丢在 CPU 上"。`[STAT]` 行扩为：
+  `enc avg/max/x skip peak | dec avg/max/x | mic rx/qdrop/rdrop/under`
+  - `rx`：手柄发来的麦克风 Opus 帧数（BT 收到的）
+  - `qdrop`：解码队列满而丢的帧（`audio_mic_feed()`）
+  - `rdrop`：USB 麦克风环形缓冲写满而丢的样本（`usb_audio_mic_write()`）
+  - `under`：麦克风 ISO IN 包因环形缓冲数据不足而补零的次数（`mic_send_next()`）
+  - `peak`：本周期内扬声器 PCM 的采样峰值，用于校准静音跳过阈值
+- `ds5_usb_audio.c/h` 新增 `usb_audio_mic_full_drops()` / `usb_audio_mic_underruns()` / `usb_audio_mic_stats_reset()`。
+
+### Changed
+- 静音跳过阈值由"峰值 ≤ 4 LSB（严格静音）"改为 **`SILENCE_PEAK_MAX 64`（≈ −54 dBFS）**：Windows 在端点打开但空闲时会留下抖动/底噪，原阈值太严导致跳过几乎不触发。`pcm_is_silent()` 相应改为 `pcm_peak()`（返回峰值，供 `[STAT]` 观测后调参）。
+
+---
+
+## v3.19.17 - 2026-09-13
+
+### Changed
+- **清理临时诊断代码**：移除此前为定位问题加入的一次性探针——主频自检 `[B] CLK:`、CPU 吞吐基准 `[B] BENCH:`、`CMakeLists.txt` 的 `-DCONFIG_MM_ENABLE_MIN_FREE_TRACKING=1`（结论已记入文档，不再需要常驻）。提交 `49f5e50`。
 
 ---
 
@@ -100,6 +132,18 @@ All notable changes to DS5Dongle BL618 firmware are documented here.
 
 ### Notes
 - **本版是实验固件**，用于判定"Opus 卡在 XIP Flash 取指"这一假设是否成立。
+
+---
+
+## v3.19.8 - 2026-09-12
+
+### Fixed
+- **休眠唤醒后音频卡顿**：`USBD_EVENT_RESUME` 分支此前**不做任何音频处理**，而 `USBD_EVENT_SUSPEND` 只 stop 不重置编解码器。USB 总线挂起并不会取消 alternate setting，主机是"挂着流"睡过去的；唤醒后 `audio_ep_out_handler()` 看到 `stream_active == false` 就**不再重新 arm 端点**，唤醒后第一个 ISO 包被丢弃、OUT 端点从此停止收数据，直到主机碰巧重开流——听感就是唤醒后一直卡顿。Modern Standby 走的是 SUSPEND→RESUME 这条路（不是 RESET），所以 `RESET` 里原有的重置救不了它。新增 `usb_audio_suspend()/usb_audio_resume()/usb_audio_host_reset()`：挂起时记住哪些流是打开的，唤醒时恢复标志并重新 arm 扬声器/麦克风 ISO 端点，同时重置 Opus 编解码器与 PCM/麦克风环形缓冲（休眠前的编码器历史已失效）。
+- 固件版本号升至 **3.19.8 / 3.19.8H**（全速版/高速版）
+- 重新编译双版本固件并重新打包安装包
+
+### Notes
+- 本条对应作者 v3.20a 发布说明里的"修复电脑休眠唤醒后手柄音频卡顿"。作者该版本源码未公开（其公开仓库停在 v3.18），实现方式不同，此处是按症状自行定位修复。
 
 ---
 
