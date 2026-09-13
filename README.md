@@ -222,7 +222,8 @@ firmware/               板级烧录配置 + 本地编译产物（二进制已 g
 
 - **输入（手柄 → 主机）**：BT L2CAP 接收 Report 0x31 → 剥离 HID header/seq/CRC → 63 字节 payload 作为 USB Report 0x01 发送
 - **输出（主机 → 手柄）**：USB EP OUT 接收 Report 0x02 → 按 Allow 标志合入 47B 合并快照（震动马达/选择位变化则原样即时直发，不依赖合并）→ BT Report 0x31（78B 含 CRC32）→ L2CAP 发送
-- **音频输出（主机 → 手柄）**：USB Audio ISO OUT（4ch 48kHz）→ 双缓冲 PCM 累积 → polyphase sinc 重采样 512→480 → Opus CBR 编码（160kbps）→ 触觉降采样 → 0x39 双帧报告（547B）→ L2CAP 发送
+- **音频输出（主机 → 手柄）**：USB Audio ISO OUT（4ch 48kHz）→ 双缓冲 PCM 累积 → polyphase sinc 重采样 512→480 → Opus CBR 编码（160kbps，**默认单声道，插 3.5mm 耳机时自动重初始化为立体声**）→ 触觉降采样 → 0x39 双帧报告（547B）→ L2CAP 发送
+  - 静音检测：主机只要开着音频端点就会持续送零，此时直接复用开机预编码好的静音帧，不做编码
 - **音频输入（手柄 → 主机）**：BT 0x31 麦克风 Opus 帧 → 队列 → Opus 解码（48kHz 单声道）→ 单声道转立体声 → 环形缓冲 → USB Audio ISO IN（2ch 48kHz）
 - **Feature（双向）**：GET_REPORT 从 BT 侧缓存返回（DSE profile 支持 NAK gating）| SET_REPORT 附加 CRC32 后经 L2CAP 控制通道转发
 
@@ -232,6 +233,7 @@ firmware/               板级烧录配置 + 本地编译产物（二进制已 g
 |------|------|
 | 单手柄在线 | 同一时刻只能连接一个手柄；最多记忆 8 个配对（单击切换） |
 | 开发板 | 仅适配并验证 LCTech BL616 |
+| 双向音频 CPU | 单核 320MHz 上 Opus 编解码已占报告周期的 **~89%**（编码 5.6ms×2 + 解码 3.6ms×2.13 / 21.33ms），双向 48kHz 音频已是这颗芯片的实际上限。要在音频路径上再加东西，得先压缩这个预算 |
 
 ## 赞助支持
 

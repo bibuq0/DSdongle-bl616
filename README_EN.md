@@ -220,7 +220,8 @@ firmware/               Board flash configs + local build output (binaries git-i
 
 - **Input (Controller → Host)**: BT L2CAP receives Report 0x31 → strip HID header/seq/CRC → 63-byte payload sent as USB Report 0x01
 - **Output (Host → Controller)**: USB EP OUT receives Report 0x02 → merged into a 47-byte snapshot by Allow flags (rumble motor/selector changes are sent immediately as the raw frame, independent of merging) → BT Report 0x31 (78B with CRC32) → L2CAP send
-- **Audio OUT (Host → Controller)**: USB Audio ISO OUT (4ch 48kHz) → double-buffer PCM accumulation → polyphase sinc resample 512→480 → Opus CBR encode (160kbps) → haptics decimation → 0x39 dual-frame report (547B) → L2CAP send
+- **Audio OUT (Host → Controller)**: USB Audio ISO OUT (4ch 48kHz) → double-buffer PCM accumulation → polyphase sinc resample 512→480 → Opus CBR encode (160kbps, **mono by default; the encoder is re-initialised to stereo when a 3.5mm headset is plugged in**) → haptics decimation → 0x39 dual-frame report (547B) → L2CAP send
+  - Silence detection: the host keeps the audio endpoint open and streams zeros whenever nothing is playing, so a pre-encoded silence frame is reused instead of running the encoder
 - **Audio IN (Controller → Host)**: BT 0x31 mic Opus frame → queue → Opus decode (48kHz mono) → mono-to-stereo → ring buffer → USB Audio ISO IN (2ch 48kHz)
 - **Feature (bidirectional)**: GET_REPORT from BT-side cache (DSE profiles support NAK gating) | SET_REPORT adds CRC32 and forwards via L2CAP control channel
 
@@ -230,6 +231,7 @@ firmware/               Board flash configs + local build output (binaries git-i
 |------|-------------|
 | Single active controller | One controller connected at a time; up to 8 pairings remembered (single click switches) |
 | Board | Only the LCTech BL616 is adapted and validated |
+| Bidirectional audio CPU | On the single 320MHz core, Opus encode+decode already consume **~89%** of the report cycle (encode 5.6ms x2 + decode 3.6ms x2.13 / 21.33ms). Bidirectional 48kHz audio is effectively this chip's ceiling -- anything added to the audio path has to shrink that budget first |
 
 ## Support
 
