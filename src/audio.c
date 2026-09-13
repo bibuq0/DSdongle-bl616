@@ -87,32 +87,40 @@ static TimerHandle_t encode_watchdog;
 /* Per-call Opus cost, printed every 2 s. The codec is this board's hard
  * performance limit (encode x2 + decode x2.13 must fit in a 21.33 ms report
  * cycle), so keep the instrument around for any future audio change.
- * Set AUDIO_STATS to 0 to compile it out entirely. */
+ * Set AUDIO_STATS to 0 to compile out the expensive half (the mtimer calls
+ * around each encode/decode and the periodic report). The counters themselves
+ * stay defined -- they are plain increments on the hot path, and keeping them
+ * unconditional avoids sprinkling guards through the encode/mic paths. */
 #define AUDIO_STATS 1
-#if AUDIO_STATS
 static volatile uint32_t st_enc_sum_us, st_enc_max_us, st_enc_n;
 static volatile uint32_t st_dec_sum_us, st_dec_max_us, st_dec_n;
 static volatile uint32_t st_enc_skips;
-static uint32_t st_last_report_ms;
-#endif
+static volatile uint32_t st_mic_qdrops;
+static volatile uint32_t st_mic_rx;     /* mic frames received from controller */
+static volatile uint32_t st_spk_peak;   /* loudest speaker sample seen this period */
 
 /* ---- Silence short-circuit for the speaker encoder --------------------
  * A pre-encoded silent 10 ms frame, produced once at init. Replayed verbatim
  * whenever the resampled block carries no signal, so the controller still
  * receives a well-formed stream without paying for a real encode. */
-#define SILENCE_PEAK_MAX 4     /* int16 LSBs; real silence is exactly 0 */
+#define SILENCE_PEAK_MAX 64    /* int16 LSBs ≈ -54 dBFS; inaudible on the
+                                * controller speaker, and high enough to catch
+                                * the dither/noise Windows leaves on an open
+                                * but idle endpoint. The peak actually seen is
+                                * reported in [STAT] so this can be tuned. */
 static uint8_t  silence_frame[OPUS_OUT_SIZE];
 static bool     silence_skip_ready;
 static bool     encoder_needs_reset;
 
-static bool pcm_is_silent(const int16_t *pcm, int n)
+static int32_t pcm_peak(const int16_t *pcm, int n)
 {
+    int32_t peak = 0;
     for (int i = 0; i < n; i++) {
         int32_t v = pcm[i];
         if (v < 0) v = -v;
-        if (v > SILENCE_PEAK_MAX) return false;
+        if (v > peak) peak = v;
     }
-    return true;
+    return peak;
 }
 
 /* ---- Encoder (re)initialisation ---------------------------------------
@@ -522,19 +530,28 @@ void audio_task(void *arg)
     for (;;) {
 #if AUDIO_STATS
         {
+            static uint32_t st_last_report_ms;
             uint32_t now_ms = (uint32_t)(bflb_mtimer_get_time_us() / 1000);
             if (st_last_report_ms == 0) st_last_report_ms = now_ms;
             if (now_ms - st_last_report_ms >= 2000) {
-                LOG_INF("[STAT] enc avg%u max%u x%u skip%u | dec avg%u max%u x%u\n",
+                LOG_INF("[STAT] enc avg%u max%u x%u skip%u peak%u"
+                        " | dec avg%u max%u x%u | mic rx%u qdrop%u rdrop%u under%u\n",
                         st_enc_n ? (unsigned)(st_enc_sum_us / st_enc_n) : 0u,
                         (unsigned)st_enc_max_us, (unsigned)st_enc_n,
-                        (unsigned)st_enc_skips,
+                        (unsigned)st_enc_skips, (unsigned)st_spk_peak,
                         st_dec_n ? (unsigned)(st_dec_sum_us / st_dec_n) : 0u,
-                        (unsigned)st_dec_max_us, (unsigned)st_dec_n);
+                        (unsigned)st_dec_max_us, (unsigned)st_dec_n,
+                        (unsigned)st_mic_rx, (unsigned)st_mic_qdrops,
+                        (unsigned)usb_audio_mic_full_drops(),
+                        (unsigned)usb_audio_mic_underruns());
+                usb_audio_mic_stats_reset();
+                st_spk_peak = 0;
+                st_mic_rx = 0;
                 st_last_report_ms = now_ms;
                 st_enc_sum_us = 0; st_enc_max_us = 0; st_enc_n = 0;
                 st_dec_sum_us = 0; st_dec_max_us = 0; st_dec_n = 0;
                 st_enc_skips = 0;
+                st_mic_qdrops = 0;
             }
         }
 #endif
@@ -569,13 +586,17 @@ void audio_task(void *arg)
                         resample_512_480(slot_pcm, spk_resamp);
 
                         /* Windows keeps the audio endpoint open (and feeding
-                         * zeros) whenever nothing is playing, so encoding is
-                         * otherwise paid unconditionally: measured at ~7 ms per
-                         * 10 ms frame = 66% of the 21.33 ms report cycle, which
-                         * is exactly what starves the mic decoder. Reuse a
-                         * pre-encoded silence frame instead. */
-                        if (silence_skip_ready &&
-                            pcm_is_silent(spk_resamp, OPUS_FRAME_SAMPLES * 2)) {
+                         * near-zero samples) whenever nothing is playing, so
+                         * encoding would otherwise be paid unconditionally --
+                         * ~5.6 ms per 10 ms frame, the main thing that starves
+                         * the mic decoder. Reuse a pre-encoded silence frame
+                         * instead, but only when the host really is idle: the
+                         * peak seen is reported in [STAT] so the threshold can
+                         * be checked against what Windows actually sends. */
+                        int32_t peak = pcm_peak(spk_resamp, OPUS_FRAME_SAMPLES * 2);
+                        if ((uint32_t)peak > st_spk_peak) st_spk_peak = (uint32_t)peak;
+
+                        if (silence_skip_ready && peak <= SILENCE_PEAK_MAX) {
                             memcpy(opus_slots[slot], silence_frame, OPUS_OUT_SIZE);
                             st_enc_skips++;
                             encoder_needs_reset = true;
@@ -708,9 +729,16 @@ void audio_mic_feed(const uint8_t *opus_data, uint16_t len)
     if (!mic_enabled || !mic_queue) return;
     if (len < MIC_OPUS_SIZE) return;
 
+    /* Counted before the queue: rx vs dec shows whether frames were lost on
+     * the BT link (rx low) or dropped locally because the decoder fell behind
+     * (rx normal, dec low). The two need completely different fixes. */
+    st_mic_rx++;
+
     uint8_t frame[MIC_OPUS_SIZE];
     memcpy(frame, opus_data, MIC_OPUS_SIZE);
     if (xQueueSend(mic_queue, frame, 0) != pdTRUE) {
+        /* Queue full: the decoder is behind, so a 10 ms frame is lost. */
+        st_mic_qdrops++;
         uint8_t discard[MIC_OPUS_SIZE];
         xQueueReceive(mic_queue, discard, 0);
         xQueueSend(mic_queue, frame, 0);

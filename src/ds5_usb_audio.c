@@ -274,6 +274,23 @@ static void audio_ep_out_handler(uint8_t busid, uint8_t ep, uint32_t nbytes)
     usbd_ep_start_read(busid, USB_AUDIO_EP_OUT, iso_rx_buf, sizeof(iso_rx_buf));
 }
 
+/* ---- Mic path health counters ----------------------------------------
+ * mic_full_drops : decoded samples thrown away because the USB consumer fell
+ *                  behind (ring full) -- i.e. the host is draining slower than
+ *                  the controller produces, or the mic task stalled.
+ * mic_underruns  : USB packets that had to be zero-padded, counted in 1 ms
+ *                  packets. Silent gaps inserted because the decoder had not
+ *                  produced audio in time.
+ * Both should stay 0. Non-zero means the remaining mic artefacts are a
+ * buffering/scheduling problem rather than the controller's own mic encoding
+ * (which the dongle cannot influence -- the DualSense encodes the mic). */
+static volatile uint32_t mic_full_drops;
+static volatile uint32_t mic_underruns;
+
+uint32_t usb_audio_mic_full_drops(void) { return mic_full_drops; }
+uint32_t usb_audio_mic_underruns(void)  { return mic_underruns; }
+void     usb_audio_mic_stats_reset(void) { mic_full_drops = 0; mic_underruns = 0; }
+
 /* ---- Mic EP IN: feed next packet from ring buffer ---- */
 static void mic_send_next(uint8_t busid)
 {
@@ -283,6 +300,9 @@ static void mic_send_next(uint8_t busid)
     uint32_t samples_per_pkt = 48;  /* 48 stereo pairs per 1ms frame */
     int16_t *tx = (int16_t *)iso_mic_tx_buf;
     uint32_t to_send = (avail >= samples_per_pkt) ? samples_per_pkt : avail;
+
+    if (to_send < samples_per_pkt)
+        mic_underruns++;
 
     for (uint32_t i = 0; i < to_send; i++) {
         uint32_t idx = ((rd + i) % MIC_RING_SIZE) * USB_AUDIO_MIC_CHANNELS;
@@ -459,6 +479,7 @@ void *usb_audio_get_semaphore(void)
 void usb_audio_mic_write(const int16_t *samples, uint32_t count)
 {
     if (!mic_active) return;
+    uint32_t written = 0;
     for (uint32_t i = 0; i < count; i++) {
         uint32_t wr = mic_ring_wr;
         uint32_t next = (wr + 1) % MIC_RING_SIZE;
@@ -468,7 +489,10 @@ void usb_audio_mic_write(const int16_t *samples, uint32_t count)
         mic_ring[idx]     = samples[i * 2];
         mic_ring[idx + 1] = samples[i * 2 + 1];
         mic_ring_wr = next;
+        written++;
     }
+    if (written < count)
+        mic_full_drops += (count - written);
 }
 
 bool usb_audio_mic_is_active(void)

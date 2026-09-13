@@ -109,4 +109,14 @@ void usb_audio_resume(uint8_t busid);
  */
 void usb_audio_host_reset(void);
 
+/**
+ * Mic path health counters (diagnostics). Both should read 0; anything else
+ * means mic artefacts come from buffering/scheduling rather than from the
+ * controller's own mic encoding.
+ * @return full-drop sample count / zero-padded 1 ms packet count.
+ */
+uint32_t usb_audio_mic_full_drops(void);
+uint32_t usb_audio_mic_underruns(void);
+void     usb_audio_mic_stats_reset(void);
+
 #endif /* DS5_USB_AUDIO_H */
