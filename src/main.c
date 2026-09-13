@@ -36,11 +36,6 @@
 #define AUDIO_TASK_STACK_SIZE STACK_WORDS(1024*32)
 #define AUDIO_TASK_PRIORITY   (configMAX_PRIORITIES - 2)
 #define MIC_TASK_STACK_SIZE   4096
-/* Keep MIC below AUDIO. Raising it to MAX-3 (level with BT) was measured and
- * did not help -- the mic frame loss under speaker encoding is a hard CPU
- * shortfall, not a priority-allocation problem: no priority creates CPU, and
- * raising it further only moves the stall onto other tasks (MIC at MAX-2 makes
- * both directions stutter). See AGENTS.md. */
 #define MIC_TASK_PRIORITY     (configMAX_PRIORITIES - 4)
 #define LED_TASK_STACK_SIZE   512
 #define LED_TASK_PRIORITY     (tskIDLE_PRIORITY + 1)
