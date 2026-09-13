@@ -69,6 +69,7 @@ static volatile bool plug_headset;
 static volatile bool mic_enabled;   /* host opened mic interface AND config allows */
 static volatile bool mic_status_pending;  /* deferred: send 0x32 to controller */
 static int  encoder_force_channels;
+static bool encoder_bw_capped;      /* encoder currently limited to WIDEBAND */
 
 static QueueHandle_t mic_queue;
 
@@ -141,19 +142,19 @@ static int encoder_setup(int channels)
     opus_encoder_ctl(encoder, OPUS_SET_FORCE_CHANNELS(channels));
     encoder_force_channels = channels;
 
-    /* Cap the encoded bandwidth. The CELT end-band mapping is 21/19/17/13 bands
-     * for fullband/superwideband/wideband/narrowband (opus_encoder.c:2267);
-     * OPUS_BANDWIDTH_MEDIUMBAND is a duplicate of wideband in CELT mode.
-     * The MDCT is full-band and unaffected, so the CPU saving is smaller than
-     * the band-count ratio suggests -- only quant_all_bands, denormalise_bands
-     * and the band energies scale.
-     * Reason for capping at all: encode+decode saturate ~91% of the report
-     * cycle, and the mic decoder was losing 15-25% of its frames to queue
-     * overflow.
-     * Wideband is the measured sweet spot: it zeroes the frame loss while the
-     * speaker change is described as barely noticeable. Superwideband (19 bands,
-     * only half the saving) was tried and reverted. */
-    opus_encoder_ctl(encoder, OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_WIDEBAND));
+    /* Cap the encoded bandwidth while the mic decoder is running -- it is the
+     * only reason to cap at all, since the two share this core. Effective
+     * end-bands are 21/19/17/13 for fullband/superwideband/wideband/
+     * narrowband (opus_encoder.c:2267); OPUS_BANDWIDTH_MEDIUMBAND is a
+     * duplicate of wideband in CELT mode. The MDCT is full-band and
+     * unaffected, so the CPU saving is smaller than the band-count ratio
+     * suggests -- only quant_all_bands, denormalise_bands and the band
+     * energies scale. Wideband is the measured sweet spot: it zeroes the mic
+     * frame loss while the speaker change is hard to notice. Fullband is
+     * restored as soon as the mic stops. */
+    encoder_bw_capped = mic_enabled;
+    opus_encoder_ctl(encoder, OPUS_SET_MAX_BANDWIDTH(
+        mic_enabled ? OPUS_BANDWIDTH_WIDEBAND : OPUS_BANDWIDTH_FULLBAND));
 
     /* Pre-encode one silent frame for the silence short-circuit, then reset so
      * the real stream starts with clean history. Must be redone on re-init
@@ -574,6 +575,17 @@ void audio_task(void *arg)
                                 " staying %dch\n",
                                 target_channels, encoder_force_channels);
                     }
+                }
+
+                /* Retune the speaker bandwidth when the mic decoder starts or
+                 * stops. Safe to do mid-stream: this CTL only writes
+                 * st->max_bandwidth, which opus_encode_native() reads per frame
+                 * (opus_encoder.c:1629) -- no re-init, no reset, no glitch. */
+                if (mic_enabled != encoder_bw_capped) {
+                    encoder_bw_capped = mic_enabled;
+                    opus_encoder_ctl(encoder, OPUS_SET_MAX_BANDWIDTH(
+                        mic_enabled ? OPUS_BANDWIDTH_WIDEBAND
+                                    : OPUS_BANDWIDTH_FULLBAND));
                 }
 
                 for (int slot = 0; slot < 2; slot++) {
