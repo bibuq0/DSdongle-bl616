@@ -235,14 +235,6 @@ firmware/               板级烧录配置 + 本地编译产物（二进制已 g
 | 开发板 | 仅适配并验证 LCTech BL616 |
 | 双向音频 CPU | 单核 320MHz 上 Opus 编解码已占报告周期的 **~89%**（编码 5.6ms×2 + 解码 3.6ms×2.13 / 21.33ms），双向 48kHz 音频已是这颗芯片的实际上限。要在音频路径上再加东西，得先压缩这个预算 |
 
-## 赞助支持
-
-如果觉得项目不错，可以赞助我一点token。随意金额即可。
-
-<p align="center">
-  <img src="docs/payway.jpg" width="220" alt="支付宝收款码" />
-</p>
-
 ## 致谢
 
 - [sqlCRT/ds5dongle-bl618-opensource](https://github.com/sqlCRT/ds5dongle-bl618-opensource) —— 本固件开源版本的来源
