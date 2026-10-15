@@ -39,7 +39,7 @@
 
 ### Windows 伴生应用（DS5 Dongle）
 
-仓库 `companion/` 提供一个基于 Electron + React 的 **Windows 配置工具**。DualSense / Edge / DualShock 4 / Xbox 360 走 WinUSB vendor（0xF6–0xF9 / 0xFB）；**Xbox One (GIP)** 走 HID 配置通道（同一套报文）。无需改固件：
+仓库 `companion/` 提供一个基于 Tauri 2 + React 的 **Windows 配置工具**（构建：在 `companion/` 下 `npm run tauri:stage` → `npm run tauri:build`，安装包约 19.8 MB；详见 `companion/docs/tauri-migration.md`）。DualSense / Edge / DualShock 4 / Xbox 360 走 WinUSB vendor（0xF6–0xF9 / 0xFB）；**Xbox One (GIP)** 走 HID 配置通道（同一套报文）。无需改固件：
 
 - **配置页面**：音频（音量、增益、缓冲、透传、音频震动）、触觉、扳机、灯条、按键映射（含陀螺仪瞄准）、系统（手柄模式 / 轮询率 / 空闲超时 / USB 唤醒 / USB 序列号）
 - **可视化按键映射**：原版 DualSense 手柄图 + 按键 glyph 图标，映射实时生效并持久化
@@ -156,7 +156,7 @@ build_windows.bat rebuild
 产物位于 `firmware/lctech616/ds5dongle-lctech616-<固件版本>.bin`（约 800KB），以及 `boot2_bl616_isp_release_v8.1.8.bin`、`partition.bin` 和 `flash_prog_cfg.ini`。
 
 > **文件名自带版本号**：版本号是扩展名之前最后一段，规则与应用安装包 `DS5-Dongle-Setup-<应用版本>.exe` 一致，
-> 例如 `ds5dongle-lctech616-3.22.2.bin`、`ds5dongle-lctech616-hs-3.22.2.bin`。
+> 例如 `ds5dongle-lctech616-3.22.3.bin`、`ds5dongle-lctech616-hs-3.22.3.bin`。
 > 高速版只靠文件名里的 `-hs` 区分，版本号与全速版相同（镜像内部仍会带 `H`，那是固件自己的标识）。
 > 版本号由构建脚本从刚编出来的镜像里读出（镜像自己嵌了 `LCT616-DS5 x.y.z`），不需要手工同步。
 > 伴生应用的「检查更新」按同一规则从文件名读版本，所以**发布到 GitHub Release 时请保持这个文件名不要改**。
@@ -168,7 +168,11 @@ build_windows.bat rebuild
 1. 按住 LCTech BL616 的 **BOOT** 键，然后通过 USB-C 插入电脑，保持按住直到进入 UART（ISP）下载模式
 2. 打开伴生应用 →「系统 → 固件刷写」，点「刷新」选中开发板对应的串口
 3. 三个文件会自动填好（Boot2 `0x000000`、分区表 `0x00E000`、固件 `0x010000`）；要换固件版本就点「浏览」选另一个 `.bin`
-4. 点「刷写固件」
+4. 选择**擦除方式**（默认**分段擦除**），再点「刷写固件」
+
+> **擦除方式**（应用内切换，对应 `BLFlashCommand`）：
+> - **分段擦除**（默认）：`--erase`（erase=1），只擦 boot2 / 分区表 / 固件写入区，**只适合当前分支固件**
+> - **全片擦除**：`--erase --whole_chip`，整片清空后再写，**适合不同分支固件，解决锁版本问题**
 
 > 刷写只用 `firmware/lctech616/` 里的 bin 文件：`boot2_bl616_isp_release_v8.1.8.bin`、`partition.bin`，
 > 以及 `ds5dongle-lctech616-<固件版本>.bin` / `ds5dongle-lctech616-hs-<固件版本>.bin` 二选一（全速版 / 高速版）。
@@ -245,7 +249,7 @@ lib/
 ├── opus/               Opus 编解码库（定点模式，xiph/opus）
 ├── opus.cmake          Opus 源文件列表
 └── opus_config.h       Opus 构建配置
-companion/              Windows 伴生应用（Electron + React，见上文章节）
+companion/              Windows 伴生应用（Tauri 2 + React，见上文章节）
 firmware/               本地编译产物（二进制与生成的 flash_prog_cfg.ini 已 git 忽略）
 ```
 

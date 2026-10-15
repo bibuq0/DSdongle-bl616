@@ -39,7 +39,7 @@ A wireless DualSense controller adapter firmware for the **LCTech BL616** board.
 
 ### Windows Companion App (DS5 Dongle)
 
-The `companion/` directory holds an Electron + React Windows configuration tool. DualSense / Edge / DualShock 4 / Xbox 360 use WinUSB vendor requests (0xF6–0xF9 / 0xFB); **Xbox One (GIP)** uses the HID config channel with the same payloads.
+The `companion/` directory holds a Tauri 2 + React Windows configuration tool (build from `companion/` with `npm run tauri:stage` then `npm run tauri:build`, installer ≈ 19.8 MB; see `companion/docs/tauri-migration.md`). DualSense / Edge / DualShock 4 / Xbox 360 use WinUSB vendor requests (0xF6–0xF9 / 0xFB); **Xbox One (GIP)** uses the HID config channel with the same payloads.
 
 - Config pages: audio (including audio vibration), haptics, triggers, lighting, button remapping (including gyro aim), system (controller mode / polling rate / idle timeout / USB wakeup / USB serial)
 - Visual remapping: original DualSense art + button glyphs, changes apply and persist instantly
@@ -156,8 +156,8 @@ build_windows.bat rebuild
 Output: `firmware/lctech616/ds5dongle-lctech616-<fwVersion>.bin` (~800 KB) plus `boot2_bl616_isp_release_v8.1.8.bin`, `partition.bin` and `flash_prog_cfg.ini`.
 
 > **The file name carries the firmware version**: the version is the last segment before the extension, the same
-> rule the companion installer follows (`DS5-Dongle-Setup-<appVersion>.exe`) — e.g. `ds5dongle-lctech616-3.22.2.bin`
-> and `ds5dongle-lctech616-hs-3.22.2.bin`. The variant lives in `-hs` only, so both images share one version number
+> rule the companion installer follows (`DS5-Dongle-Setup-<appVersion>.exe`) — e.g. `ds5dongle-lctech616-3.22.3.bin`
+> and `ds5dongle-lctech616-hs-3.22.3.bin`. The variant lives in `-hs` only, so both images share one version number
 > (the images still embed their own `H` marker internally). The build script reads the version out of the image it just linked
 > (the image embeds `LCT616-DS5 x.y.z`), so nothing has to be kept in sync by hand. The companion app's
 > "check for updates" reads versions from file names the same way — **keep these names unchanged when uploading to
@@ -170,7 +170,11 @@ Output: `firmware/lctech616/ds5dongle-lctech616-<fwVersion>.bin` (~800 KB) plus 
 1. Hold the **BOOT** button on the LCTech BL616, then plug the board into the PC via USB-C, keeping BOOT held until it enters UART (ISP) download mode.
 2. Open the companion app → System → Firmware Flashing, click Refresh and pick the board's COM port.
 3. The three files are filled in for you (Boot2 `0x000000`, partition `0x00E000`, firmware `0x010000`); use Browse to pick the other `.bin` when you want a different firmware build.
-4. Click Flash firmware.
+4. Pick an **erase mode** (default **Section erase**), then click Flash firmware.
+
+> **Erase mode** (in-app; maps to `BLFlashCommand`):
+> - **Section erase** (default): `--erase` (erase=1) — erases only boot2 / partition / firmware write regions; **for firmware from this branch only**
+> - **Whole-chip erase**: `--erase --whole_chip` — wipe the whole chip then write; **use when flashing firmware from another branch to clear version lock**
 
 > Flashing only uses the bin files in `firmware/lctech616/`: `boot2_bl616_isp_release_v8.1.8.bin`, `partition.bin`,
 > and either `ds5dongle-lctech616-<fwVersion>.bin` or `ds5dongle-lctech616-hs-<fwVersion>.bin` (full-speed / high-speed).
@@ -248,7 +252,7 @@ lib/
 ├── opus/               Opus codec (fixed-point, xiph/opus)
 ├── opus.cmake          Opus source file list
 └── opus_config.h       Opus build configuration
-companion/              Windows companion app (Electron + React, see section above)
+companion/              Windows companion app (Tauri 2 + React, see section above)
 firmware/               Local build output (binaries and generated flash_prog_cfg.ini are git-ignored)
 ```
 
